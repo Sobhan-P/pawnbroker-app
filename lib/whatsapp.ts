@@ -27,3 +27,31 @@ export function dueDateAlertMessage(name: string, dueDate: string, total: number
 export function monthlyReminderMessage(name: string, principal: number, interest: number, total: number) {
   return `Hi ${name}, your pawn is overdue. Principal: Rs.${principal}, Accumulated Interest: Rs.${interest}, Total Due: Rs.${total}. Please clear at the earliest. - Rise Again Web Solutions`;
 }
+
+export function dailySummaryMessage(
+  date: string,
+  newCount: number,
+  newPrincipal: number,
+  closedCount: number,
+  totalCollected: number,
+  interestCollected: number
+) {
+  return (
+    `PPN Finance — Daily Summary (${date})\n` +
+    `New Loans: ${newCount} | Amount: Rs.${newPrincipal.toLocaleString('en-IN')}\n` +
+    `Closed Loans: ${closedCount} | Collected: Rs.${totalCollected.toLocaleString('en-IN')}\n` +
+    `Interest Earned Today: Rs.${interestCollected.toLocaleString('en-IN')}`
+  );
+}
+
+export async function sendDailySummaryWhatsApp(
+  date: string,
+  newCount: number,
+  newPrincipal: number,
+  closedCount: number,
+  totalCollected: number,
+  interestCollected: number
+) {
+  const msg = dailySummaryMessage(date, newCount, newPrincipal, closedCount, totalCollected, interestCollected);
+  await sendWhatsApp('7530058236', msg);
+}

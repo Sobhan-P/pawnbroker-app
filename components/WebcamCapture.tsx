@@ -10,6 +10,40 @@ interface WebcamCaptureProps {
   defaultFacingMode?: 'user' | 'environment';
 }
 
+function addTimestamp(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+
+      const now = new Date();
+      const ts = now.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: true,
+      });
+      const stampLabel = `PPN Finance | ${ts}`;
+
+      const padding = 10;
+      ctx.font = 'bold 14px monospace';
+      const textW = ctx.measureText(stampLabel).width;
+      const boxH = 26;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.fillRect(padding, canvas.height - boxH - padding, textW + padding * 2, boxH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(stampLabel, padding * 2, canvas.height - padding - 6);
+
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.src = dataUrl;
+  });
+}
+
 export default function WebcamCapture({
   label,
   onCapture,
@@ -20,10 +54,11 @@ export default function WebcamCapture({
   const [open, setOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(defaultFacingMode);
 
-  const capture = useCallback(() => {
+  const capture = useCallback(async () => {
     const img = webcamRef.current?.getScreenshot();
     if (img) {
-      onCapture(img);
+      const stamped = await addTimestamp(img);
+      onCapture(stamped);
       setOpen(false);
     }
   }, [onCapture]);

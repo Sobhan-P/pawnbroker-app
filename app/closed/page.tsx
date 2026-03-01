@@ -19,43 +19,43 @@ export default function ClosedRecordsPage() {
     if (to) params.set('to', to);
     fetch(`/api/clients-closed?${params}`)
       .then((r) => r.json())
-      .then((data) => { setClients(data); setLoading(false); });
+      .then((data) => { setClients(Array.isArray(data) ? data : []); setLoading(false); });
   }, [search, from, to]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Closed Records</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-5">Closed Records</h1>
 
       <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mb-5">
         <input
           type="text"
-          placeholder="Search by name, mobile number or serial no..."
+          placeholder="SEARCH BY GL NUMBER, NAME, CONTACT OR SERIAL NO."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-64 border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="flex-1 min-w-0 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
         />
-        <div className="flex gap-3">
+        <div className="flex gap-3 shrink-0">
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            title="Closed from date"
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            title="FROM DATE"
           />
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            title="Closed to date"
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            title="TO DATE"
           />
         </div>
         {(search || from || to) && (
           <button
             onClick={() => { setSearch(''); setFrom(''); setTo(''); }}
-            className="text-sm text-gray-500 hover:text-gray-700 underline self-center"
+            className="text-sm text-gray-500 hover:text-gray-700 underline self-center shrink-0"
           >
-            Clear filters
+            Clear
           </button>
         )}
       </div>

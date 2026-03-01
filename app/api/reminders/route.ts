@@ -24,7 +24,8 @@ async function runReminders(req: NextRequest) {
     const due = new Date(client.expectedReturnDate);
     const dueStr = due.toLocaleDateString('en-IN');
     const monthsOverdue = Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24 * 30)));
-    const interest = Math.round(client.pawnAmount * (client.interestRate / 100) * (monthsOverdue + 1));
+    const legacyRate = client.interestRate ?? 12;
+    const interest = Math.round(client.pawnAmount * (legacyRate / 100) * (monthsOverdue + 1));
     const total = client.pawnAmount + interest;
 
     if (due <= threeDaysLater && due >= now) {

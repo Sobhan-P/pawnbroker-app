@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/mongodb';
 import Client from '@/models/Client';
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   await connectDB();
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('search') || '';
@@ -16,9 +21,11 @@ export async function GET(req: NextRequest) {
     query.$or = [
       { name: { $regex: search, $options: 'i' } },
       { contactNumber: { $regex: search, $options: 'i' } },
+      { glNumber: { $regex: search, $options: 'i' } },
       ...(isNaN(serialNum) ? [] : [{ serialNumber: serialNum }]),
     ];
   }
+
   if (from || to) {
     const dateFilter: Record<string, Date> = {};
     if (from) {

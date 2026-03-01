@@ -14,58 +14,55 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await connectDB();
   const { id } = await params;
   const body = await req.json();
-  const { totalAmountPaid, closingFacePhoto, closingJewelleryPhoto } = body;
+  const { amountPaid, facePhoto } = body;
 
   const client = await Client.findById(id);
   if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (client.status === 'closed') return NextResponse.json({ error: 'Already closed' }, { status: 400 });
+  if (client.status === 'closed') return NextResponse.json({ error: 'Loan is already closed' }, { status: 400 });
 
-  const { currentPrincipal, totalInterest } = calculateOutstanding(
+  const { totalInterest } = calculateOutstanding(
     client.pawnAmount,
     client.pawnDate,
     client.payments,
     new Date()
   );
 
-  let closingFacePhotoUrl: string | undefined;
-  let closingJewelleryPhotoUrl: string | undefined;
-  if (closingFacePhoto) closingFacePhotoUrl = await uploadImage(closingFacePhoto, 'closing-face');
-  if (closingJewelleryPhoto) closingJewelleryPhotoUrl = await uploadImage(closingJewelleryPhoto, 'closing-jewellery');
+  const actualAmountPaid = amountPaid || totalInterest;
+  // Reset the clock to 12% only when the FULL outstanding interest is paid
+  const resetsInterestClock = actualAmountPaid >= totalInterest;
+
+  let facePhotoUrl: string | undefined;
+  if (facePhoto) {
+    facePhotoUrl = await uploadImage(facePhoto, 'interest-payments');
+  }
 
   const paymentEntry = {
     date: new Date(),
-    type: 'full' as const,
-    amountPaid: totalAmountPaid,
-    principalReduced: currentPrincipal,
-    interestPaid: totalInterest,
-    facePhotoUrl: closingFacePhotoUrl,
-    jewelleryPhotoUrl: closingJewelleryPhotoUrl,
+    type: 'interest' as const,
+    amountPaid: actualAmountPaid,
+    principalReduced: 0,
+    interestPaid: actualAmountPaid,
+    resetsInterestClock,
+    facePhotoUrl,
     processedBy: session.user.id,
     processedByName: session.user.name,
   };
 
   const updated = await Client.findByIdAndUpdate(
     id,
-    {
-      status: 'closed',
-      closedDate: new Date(),
-      totalAmountPaid,
-      closingFacePhotoUrl,
-      closingJewelleryPhotoUrl,
-      $push: { payments: paymentEntry },
-    },
+    { $push: { payments: paymentEntry } },
     { new: true }
   );
 
   await AuditLog.create({
-    action: 'loan_closed',
+    action: 'interest_paid',
     performedBy: session.user.id,
     performedByName: session.user.name,
     loanId: client._id,
     glNumber: client.glNumber,
     clientName: client.name,
-    amount: totalAmountPaid,
-    details: `Loan closed. Amount paid: Rs.${totalAmountPaid}`,
+    amount: actualAmountPaid,
+    details: `Interest payment: Rs.${actualAmountPaid}. ${resetsInterestClock ? 'Rate resets to 12%.' : 'Partial interest — clock continues.'}`,
   });
 
   return NextResponse.json(updated);

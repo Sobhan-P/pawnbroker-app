@@ -4,8 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/mongodb';
 import Client from '@/models/Client';
 import AuditLog from '@/models/AuditLog';
-import { calculateOutstanding } from '@/lib/interest';
 import { uploadImage } from '@/lib/cloudinary';
+import { calculateOutstanding } from '@/lib/interest';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -14,58 +14,55 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await connectDB();
   const { id } = await params;
   const body = await req.json();
-  const { totalAmountPaid, closingFacePhoto, closingJewelleryPhoto } = body;
+  const { amountPaid, principalReduced, interestPaid, facePhoto, jewelleryPhoto } = body;
 
   const client = await Client.findById(id);
   if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (client.status === 'closed') return NextResponse.json({ error: 'Already closed' }, { status: 400 });
+  if (client.status === 'closed') return NextResponse.json({ error: 'Loan is already closed' }, { status: 400 });
 
-  const { currentPrincipal, totalInterest } = calculateOutstanding(
+  // Determine if this payment covers the full outstanding interest → resets clock
+  const { totalInterest } = calculateOutstanding(
     client.pawnAmount,
     client.pawnDate,
     client.payments,
     new Date()
   );
+  const paidInterest = interestPaid || 0;
+  const resetsInterestClock = paidInterest >= totalInterest;
 
-  let closingFacePhotoUrl: string | undefined;
-  let closingJewelleryPhotoUrl: string | undefined;
-  if (closingFacePhoto) closingFacePhotoUrl = await uploadImage(closingFacePhoto, 'closing-face');
-  if (closingJewelleryPhoto) closingJewelleryPhotoUrl = await uploadImage(closingJewelleryPhoto, 'closing-jewellery');
+  let facePhotoUrl: string | undefined;
+  let jewelleryPhotoUrl: string | undefined;
+  if (facePhoto) facePhotoUrl = await uploadImage(facePhoto, 'partial-face');
+  if (jewelleryPhoto) jewelleryPhotoUrl = await uploadImage(jewelleryPhoto, 'partial-jewellery');
 
   const paymentEntry = {
     date: new Date(),
-    type: 'full' as const,
-    amountPaid: totalAmountPaid,
-    principalReduced: currentPrincipal,
-    interestPaid: totalInterest,
-    facePhotoUrl: closingFacePhotoUrl,
-    jewelleryPhotoUrl: closingJewelleryPhotoUrl,
+    type: 'partial' as const,
+    amountPaid,
+    principalReduced: principalReduced || 0,
+    interestPaid: paidInterest,
+    resetsInterestClock,
+    facePhotoUrl,
+    jewelleryPhotoUrl,
     processedBy: session.user.id,
     processedByName: session.user.name,
   };
 
   const updated = await Client.findByIdAndUpdate(
     id,
-    {
-      status: 'closed',
-      closedDate: new Date(),
-      totalAmountPaid,
-      closingFacePhotoUrl,
-      closingJewelleryPhotoUrl,
-      $push: { payments: paymentEntry },
-    },
+    { $push: { payments: paymentEntry } },
     { new: true }
   );
 
   await AuditLog.create({
-    action: 'loan_closed',
+    action: 'partial_payment',
     performedBy: session.user.id,
     performedByName: session.user.name,
     loanId: client._id,
     glNumber: client.glNumber,
     clientName: client.name,
-    amount: totalAmountPaid,
-    details: `Loan closed. Amount paid: Rs.${totalAmountPaid}`,
+    amount: amountPaid,
+    details: `Partial payment: Rs.${amountPaid} (Principal: Rs.${principalReduced || 0}, Interest: Rs.${interestPaid || 0})`,
   });
 
   return NextResponse.json(updated);
