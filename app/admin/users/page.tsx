@@ -113,7 +113,7 @@ export default function UsersPage() {
       ) : users.length === 0 ? (
         <p className="text-gray-500 text-center py-8">No users found.</p>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-blue-50 text-blue-800 font-semibold">
               <tr>

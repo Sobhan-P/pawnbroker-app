@@ -156,6 +156,8 @@ export function calculateOutstanding(
   let clockStart: Date = toUTCMidnight(pawnDate);
   // interestCreditBalance: partial interest already paid that has NOT reset the clock
   let interestCreditBalance = 0;
+  // Use IST offset so payment dates match how effectiveAsOf is computed below
+  const IST_OFFSET_MS = 330 * 60 * 1000;
 
   for (const payment of sortedPayments) {
     if (payment.type === 'full') continue; // loan already closed
@@ -169,8 +171,11 @@ export function calculateOutstanding(
     const resets = payment.resetsInterestClock !== false;
 
     if (resets) {
-      // Full interest was paid → reset the clock
-      clockStart = toUTCMidnight(payment.date);
+      // Full interest was paid → reset the clock.
+      // Convert payment timestamp to IST date (same as effectiveAsOf) so that a payment
+      // made at e.g. 00:30 IST (which is UTC previous-day) still resets to the IST date.
+      const paymentIST = new Date(new Date(payment.date).getTime() + IST_OFFSET_MS);
+      clockStart = toUTCMidnight(paymentIST);
       interestCreditBalance = 0;
     } else {
       // Only partial interest paid → accumulate credit, clock keeps running
@@ -180,7 +185,6 @@ export function calculateOutstanding(
 
   // Convert asOfDate to IST before extracting the date. Without this, before 05:30 IST
   // the UTC date is still the previous day, causing the current month to not appear.
-  const IST_OFFSET_MS = 330 * 60 * 1000; // +5:30 = 330 minutes
   const asOfIST = new Date(asOfDate.getTime() + IST_OFFSET_MS);
   const effectiveAsOf = new Date(
     Date.UTC(asOfIST.getUTCFullYear(), asOfIST.getUTCMonth(), asOfIST.getUTCDate())
