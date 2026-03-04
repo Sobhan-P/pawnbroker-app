@@ -7,9 +7,10 @@ import { IClient } from '@/types';
 interface ClientTableProps {
   clients: IClient[];
   showClosedDate?: boolean;
+  showPawnDate?: boolean;
 }
 
-export default function ClientTable({ clients, showClosedDate = false }: ClientTableProps) {
+export default function ClientTable({ clients, showClosedDate = false, showPawnDate = false }: ClientTableProps) {
   const router = useRouter();
 
   if (clients.length === 0) {
@@ -54,6 +55,12 @@ export default function ClientTable({ clients, showClosedDate = false }: ClientT
                     {isOverdue && ' ⚠'}
                   </p>
                 </div>
+                {showPawnDate && (
+                  <div>
+                    <p className="text-xs text-gray-400">PAWNED ON</p>
+                    <p className="font-medium">{new Date(c.pawnDate).toLocaleDateString('en-IN')}</p>
+                  </div>
+                )}
                 {showClosedDate && c.closedDate && (
                   <div>
                     <p className="text-xs text-gray-400">CLOSED ON</p>
@@ -78,6 +85,7 @@ export default function ClientTable({ clients, showClosedDate = false }: ClientT
               <th className="px-4 py-3 text-left">Jewellery</th>
               <th className="px-4 py-3 text-right">Amount (Rs.)</th>
               <th className="px-4 py-3 text-left">Due Date</th>
+              {showPawnDate && <th className="px-4 py-3 text-left">Pawned On</th>}
               {showClosedDate && <th className="px-4 py-3 text-left">Closed On</th>}
               <th className="px-4 py-3 text-center">Status</th>
             </tr>
@@ -103,6 +111,11 @@ export default function ClientTable({ clients, showClosedDate = false }: ClientT
                       {isOverdue && ' ⚠'}
                     </span>
                   </td>
+                  {showPawnDate && (
+                    <td className="px-4 py-3">
+                      {new Date(c.pawnDate).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                    </td>
+                  )}
                   {showClosedDate && (
                     <td className="px-4 py-3">
                       {c.closedDate ? new Date(c.closedDate).toLocaleDateString('en-IN') : '—'}

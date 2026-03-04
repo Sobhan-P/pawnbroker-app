@@ -36,18 +36,20 @@ export default function ClosedRecordsPage() {
         />
         <div className="flex gap-3 shrink-0">
           <input
+            id="closed-from-date"
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            title="FROM DATE"
+            onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
+            className="border rounded-lg px-3 py-2 text-sm min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
           <input
+            id="closed-to-date"
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            title="TO DATE"
+            onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
+            className="border rounded-lg px-3 py-2 text-sm min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
         {(search || from || to) && (
@@ -63,7 +65,7 @@ export default function ClosedRecordsPage() {
       {loading ? (
         <p className="text-gray-500">Loading...</p>
       ) : (
-        <ClientTable clients={clients} showClosedDate />
+        <ClientTable clients={clients} showClosedDate showPawnDate />
       )}
     </div>
   );

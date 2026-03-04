@@ -11,6 +11,12 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Change password state
+  const [changePwdUserId, setChangePwdUserId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSubmitting, setPwdSubmitting] = useState(false);
+
   async function loadUsers() {
     setLoading(true);
     const data = await fetch('/api/users').then((r) => r.json());
@@ -51,6 +57,29 @@ export default function UsersPage() {
     }
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwdError('');
+    if (newPassword.length < 8) {
+      setPwdError('Password must be at least 8 characters');
+      return;
+    }
+    setPwdSubmitting(true);
+    const res = await fetch(`/api/users/${changePwdUserId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword }),
+    });
+    const data = await res.json();
+    setPwdSubmitting(false);
+    if (!res.ok) {
+      setPwdError(data.error || 'Failed to change password');
+    } else {
+      setChangePwdUserId(null);
+      setNewPassword('');
+    }
+  }
+
   const inputClass = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400';
 
   return (
@@ -68,6 +97,42 @@ export default function UsersPage() {
         </button>
       </div>
 
+      {/* Change Password Modal */}
+      {changePwdUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 w-full max-w-sm shadow-xl">
+            <h2 className="font-semibold text-gray-800 mb-1">Change Password</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Changing password for: <strong>{users.find((u) => u._id === changePwdUserId)?.name}</strong>
+            </p>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Password *</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="MIN 8 CHARACTERS"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className={inputClass}
+                />
+              </div>
+              {pwdError && <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{pwdError}</p>}
+              <div className="flex gap-3">
+                <button type="submit" disabled={pwdSubmitting} className="bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 disabled:opacity-50">
+                  {pwdSubmitting ? 'Saving...' : 'Update Password'}
+                </button>
+                <button type="button" onClick={() => { setChangePwdUserId(null); setNewPassword(''); setPwdError(''); }} className="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-200">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Create form */}
       {showForm && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
@@ -84,7 +149,7 @@ export default function UsersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                <input type="password" placeholder="MIN 6 CHARACTERS" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} className={inputClass} />
+                <input type="password" autoComplete="new-password" placeholder="MIN 8 CHARACTERS" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
@@ -121,7 +186,7 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left">Username</th>
                 <th className="px-4 py-3 text-left">Role</th>
                 <th className="px-4 py-3 text-left">Created</th>
-                <th className="px-4 py-3 text-center">Action</th>
+                <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -136,14 +201,24 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500">{new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
                   <td className="px-4 py-3 text-center">
-                    {u.role !== 'admin' && (
-                      <button
-                        onClick={() => handleDelete(u._id, u.name)}
-                        className="text-red-600 hover:text-red-800 text-xs font-semibold hover:underline"
-                      >
-                        Remove
-                      </button>
-                    )}
+                    <div className="flex items-center justify-center gap-3">
+                      {u.role === 'admin' && (
+                        <button
+                          onClick={() => { setChangePwdUserId(u._id); setNewPassword(''); setPwdError(''); }}
+                          className="text-blue-600 hover:text-blue-800 text-xs font-semibold hover:underline"
+                        >
+                          Change Password
+                        </button>
+                      )}
+                      {u.role !== 'admin' && (
+                        <button
+                          onClick={() => handleDelete(u._id, u.name)}
+                          className="text-red-600 hover:text-red-800 text-xs font-semibold hover:underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

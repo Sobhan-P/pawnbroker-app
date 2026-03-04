@@ -177,21 +177,21 @@ export default function PawnEntryReceipt({ client, onClose }: PawnEntryReceiptPr
                 <div className="text-center">
                   <p className="text-xs text-gray-500 uppercase mb-2">Customer Photo</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={client.facePhotoUrl} alt="Customer" className="w-36 h-36 object-cover rounded-xl border-2 border-gray-300 mx-auto" />
+                  <img src={client.facePhotoUrl} alt="Customer" className="w-36 h-36 object-contain bg-gray-100 rounded-xl border-2 border-gray-300 mx-auto" />
                 </div>
               )}
               {client.jewelleryPhotoUrl && (
                 <div className="text-center">
                   <p className="text-xs text-gray-500 uppercase mb-2">Jewellery Photo</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={client.jewelleryPhotoUrl} alt="Jewellery" className="w-36 h-36 object-cover rounded-xl border-2 border-gray-300 mx-auto" />
+                  <img src={client.jewelleryPhotoUrl} alt="Jewellery" className="w-36 h-36 object-contain bg-gray-100 rounded-xl border-2 border-gray-300 mx-auto" />
                 </div>
               )}
               {client.kycDocumentUrl && (
                 <div className="text-center">
                   <p className="text-xs text-gray-500 uppercase mb-2">KYC — Front</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={client.kycDocumentUrl} alt="KYC" className="w-36 h-36 object-cover rounded-xl border-2 border-gray-300 mx-auto" />
+                  <img src={client.kycDocumentUrl} alt="KYC" className="w-36 h-36 object-contain bg-gray-100 rounded-xl border-2 border-gray-300 mx-auto" />
                 </div>
               )}
             </div>

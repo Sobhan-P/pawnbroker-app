@@ -138,7 +138,11 @@ export function calculateInterestFromDate(
     monthNumber++;
   }
 
-  return { totalInterest: Math.round(totalInterest), periods };
+  // Sum the already-rounded period interests so the displayed breakdown always matches
+  // the totalInterest used for payment splitting. Using Math.round(accumulated_raw_total)
+  // instead can silently differ from the sum of displayed period amounts, causing the
+  // system to deduct e.g. Rs.2 from a payment that shows Rs.0 in the breakdown.
+  return { totalInterest: periods.reduce((s, p) => s + p.interest, 0), periods };
 }
 
 export function calculateOutstanding(
@@ -172,10 +176,17 @@ export function calculateOutstanding(
 
     if (resets) {
       // Full interest was paid → reset the clock.
-      // Convert payment timestamp to IST date (same as effectiveAsOf) so that a payment
-      // made at e.g. 00:30 IST (which is UTC previous-day) still resets to the IST date.
+      // Convert payment timestamp to IST date so that a payment made at e.g. 00:30 IST
+      // (UTC previous-day) still resets to the correct IST calendar date.
       const paymentIST = new Date(new Date(payment.date).getTime() + IST_OFFSET_MS);
-      clockStart = toUTCMidnight(paymentIST);
+      const paymentDateUTC = toUTCMidnight(paymentIST);
+      // Reset to the DAY AFTER payment. The interest engine uses effectiveAsOf as an
+      // exclusive upper bound — it charges days from clockStart up to (but NOT including)
+      // effectiveAsOf midnight. So a payment on March 3 covers interest through March 2.
+      // Without this +1, March 3 gets charged again on the very next check (double-day).
+      // With this fix: clock = March 4 → the next check on March 4 shows 0 days owed,
+      // matching the user's expectation of "paid till today."
+      clockStart = new Date(paymentDateUTC.getTime() + 24 * 60 * 60 * 1000);
       interestCreditBalance = 0;
     } else {
       // Only partial interest paid → accumulate credit, clock keeps running

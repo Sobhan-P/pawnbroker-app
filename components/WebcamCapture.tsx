@@ -21,24 +21,44 @@ function addTimestamp(dataUrl: string): Promise<string> {
       ctx.drawImage(img, 0, 0);
 
       const now = new Date();
-      const ts = now.toLocaleString('en-IN', {
+      const datePart = now.toLocaleDateString('en-IN', {
         timeZone: 'Asia/Kolkata',
         day: '2-digit', month: '2-digit', year: 'numeric',
+      });
+      const timePart = now.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         hour12: true,
       });
-      const stampLabel = `PPN Finance | ${ts}`;
 
-      const padding = 10;
-      ctx.font = 'bold 14px monospace';
-      const textW = ctx.measureText(stampLabel).width;
-      const boxH = 26;
-      ctx.fillStyle = 'rgba(0,0,0,0.65)';
-      ctx.fillRect(padding, canvas.height - boxH - padding, textW + padding * 2, boxH);
+      // Scale font to 4% of image width so it's clearly visible at any resolution
+      const fontSize = Math.max(Math.round(canvas.width * 0.04), 28);
+      const lineH = Math.round(fontSize * 1.35);
+      const pad = Math.round(fontSize * 0.6);
+
+      ctx.font = `bold ${fontSize}px monospace`;
+
+      const line1 = 'PPN FINANCE';
+      const line2 = `${datePart}  ${timePart.toUpperCase()}`;
+
+      // Full-width bar so text never overflows on any image size
+      const barH = lineH * 2 + pad * 1.5;
+      const barY = canvas.height - barH;
+
+      // Dark background bar — full width
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+      ctx.fillRect(0, barY, canvas.width, barH);
+
+      // Amber top accent line — full width
+      ctx.fillStyle = '#F59E0B';
+      ctx.fillRect(0, barY, canvas.width, Math.round(fontSize * 0.12));
+
+      // White text (padded from left edge)
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(stampLabel, padding * 2, canvas.height - padding - 6);
+      ctx.fillText(line1, pad, barY + pad + fontSize);
+      ctx.fillText(line2, pad, barY + pad + fontSize + lineH);
 
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
     };
     img.src = dataUrl;
   });

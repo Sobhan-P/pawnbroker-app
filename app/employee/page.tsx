@@ -4,12 +4,48 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { IClient } from '@/types';
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+function todayIST() {
+  return new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
+}
+
+const EXPENSE_TAGS = ['Rent', 'Salary', 'Electricity', 'Supplies', 'Maintenance', 'Other Expense'];
+
 export default function EmployeePage() {
   const [clients, setClients] = useState<IClient[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Expense form
+  const [showExpense, setShowExpense] = useState(false);
+  const [expDate, setExpDate] = useState(todayIST());
+  const [expTag, setExpTag] = useState('');
+  const [expCustomTag, setExpCustomTag] = useState('');
+  const [expAmount, setExpAmount] = useState('');
+  const [expDesc, setExpDesc] = useState('');
+  const [expSaving, setExpSaving] = useState(false);
+  const [expDone, setExpDone] = useState(false);
+
+  async function handleAddExpense(e: React.FormEvent) {
+    e.preventDefault();
+    const tag = expTag === '__custom__' ? expCustomTag.trim() : expTag;
+    if (!tag || !expAmount) return;
+    setExpSaving(true);
+    await fetch('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: expDate, type: 'expense', amount: parseFloat(expAmount), tag, description: expDesc }),
+    });
+    setExpSaving(false);
+    setExpAmount('');
+    setExpDesc('');
+    setExpTag('');
+    setExpCustomTag('');
+    setExpDone(true);
+    setTimeout(() => setExpDone(false), 3000);
+  }
 
   async function handleSendWhatsApp() {
     setSending(true);
@@ -81,6 +117,85 @@ export default function EmployeePage() {
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
+
+      {/* Record Expense */}
+      <div className="mb-5">
+        <button
+          onClick={() => setShowExpense((v) => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <svg className={`w-4 h-4 transition-transform ${showExpense ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Record Expense
+        </button>
+
+        {showExpense && (
+          <div className="mt-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <form onSubmit={handleAddExpense} className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                <input
+                  type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)}
+                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tag</label>
+                <select
+                  value={expTag} onChange={(e) => setExpTag(e.target.value)}
+                  required
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  <option value="">Select...</option>
+                  {EXPENSE_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  <option value="__custom__">Custom...</option>
+                </select>
+              </div>
+              {expTag === '__custom__' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Custom Tag</label>
+                  <input
+                    value={expCustomTag} onChange={(e) => setExpCustomTag(e.target.value)}
+                    placeholder="Tag name" required
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Amount (Rs.)</label>
+                <input
+                  type="number" min="1" step="1" value={expAmount}
+                  onChange={(e) => setExpAmount(e.target.value)}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                  placeholder="0" required
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Note (optional)</label>
+                <input
+                  value={expDesc} onChange={(e) => setExpDesc(e.target.value)}
+                  placeholder="Description"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <button
+                  type="submit" disabled={expSaving}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+                >
+                  {expSaving ? 'Saving...' : 'Add'}
+                </button>
+              </div>
+            </form>
+            {expDone && (
+              <p className="text-sm text-green-600 font-medium mt-2">Expense recorded successfully.</p>
+            )}
+          </div>
+        )}
+      </div>
 
       {!loading && searched && clients.length === 0 && (
         <p className="text-gray-500 text-center py-8">No records found for &ldquo;{search}&rdquo;</p>

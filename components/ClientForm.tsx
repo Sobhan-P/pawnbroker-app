@@ -20,7 +20,7 @@ export default function ClientForm() {
     goldWeightNet: '',
     pawnAmount: '',
     pawnDate: new Date().toISOString().split('T')[0],
-    expectedReturnDate: '',
+    expectedReturnDate: new Date().toISOString().split('T')[0],
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -105,7 +105,7 @@ export default function ClientForm() {
       {/* Row 1: Name, Contact */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Client Name *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
           <input name="name" value={form.name} onChange={handleChange} required placeholder="FULL NAME" className={inputClass} />
         </div>
         <div>
@@ -145,29 +145,29 @@ export default function ClientForm() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Gross Weight (g) *</label>
-          <input name="goldWeightGross" type="number" step="0.01" value={form.goldWeightGross} onChange={handleChange} required placeholder="TOTAL WEIGHT INCL. STONE" className={inputClass} />
+          <input name="goldWeightGross" type="number" step="0.01" value={form.goldWeightGross} onChange={handleChange} onWheel={(e) => (e.target as HTMLInputElement).blur()} required placeholder="TOTAL WEIGHT INCL. STONE" className={inputClass} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Net Weight (g) *</label>
-          <input name="goldWeightNet" type="number" step="0.01" value={form.goldWeightNet} onChange={handleChange} required placeholder="PURE GOLD WEIGHT" className={inputClass} />
+          <input name="goldWeightNet" type="number" step="0.01" value={form.goldWeightNet} onChange={handleChange} onWheel={(e) => (e.target as HTMLInputElement).blur()} required placeholder="PURE GOLD WEIGHT" className={inputClass} />
         </div>
       </div>
 
       {/* Pawn Amount */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Pawn Amount (Rs.) *</label>
-        <input name="pawnAmount" type="number" value={form.pawnAmount} onChange={handleChange} required placeholder="LOAN AMOUNT" className={inputClass} />
+        <input name="pawnAmount" type="number" value={form.pawnAmount} onChange={handleChange} onWheel={(e) => (e.target as HTMLInputElement).blur()} required placeholder="LOAN AMOUNT" className={inputClass} />
       </div>
 
       {/* Dates */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Pawn Date *</label>
-          <input name="pawnDate" type="date" value={form.pawnDate} onChange={handleChange} required className={inputClass} />
+          <label htmlFor="pawn-date" className="block text-sm font-medium text-gray-700 mb-1">Pawn Date *</label>
+          <input id="pawn-date" name="pawnDate" type="date" value={form.pawnDate} onChange={handleChange} required className={inputClass} onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Expected Return Date *</label>
-          <input name="expectedReturnDate" type="date" value={form.expectedReturnDate} onChange={handleChange} required placeholder="RETURN DATE" className={inputClass} />
+          <label htmlFor="expected-return-date" className="block text-sm font-medium text-gray-700 mb-1">Expected Return Date *</label>
+          <input id="expected-return-date" name="expectedReturnDate" type="date" value={form.expectedReturnDate} onChange={handleChange} required className={inputClass} onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }} />
         </div>
       </div>
 

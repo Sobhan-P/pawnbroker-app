@@ -1,41 +1,91 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { DailyReport } from '@/types';
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function todayIST(): string {
+  return new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
+}
+
 export default function DailyReportPage() {
-  // Use IST date as default so early-morning opens show today's IST date (not UTC yesterday)
-  const [date, setDate] = useState(() => {
-    const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-    return nowIST.toISOString().split('T')[0];
-  });
+  const [mode, setMode] = useState<'single' | 'range'>('single');
+  const [date, setDate] = useState(todayIST());
+  const [from, setFrom] = useState(todayIST());
+  const [to, setTo] = useState(todayIST());
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
+
+  function buildUrl() {
+    if (mode === 'range') {
+      return `/api/report?from=${from}&to=${to}`;
+    }
+    return `/api/report?date=${date}`;
+  }
 
   async function loadReport() {
     setLoading(true);
-    const data = await fetch(`/api/report?date=${date}`).then((r) => r.json());
+    const data = await fetch(buildUrl()).then((r) => r.json());
     setReport(data);
     setLoading(false);
   }
 
-  useEffect(() => { loadReport(); }, [date]);
+  useEffect(() => { loadReport(); }, [date, from, to, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Daily Report</h1>
-          <p className="text-sm text-gray-500 mt-0.5">New loans and closures for selected date</p>
+          <p className="text-sm text-gray-500 mt-0.5">New loans and closures for selected period</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
+          {/* Mode toggle */}
+          <div className="flex rounded-lg border overflow-hidden text-sm font-medium">
+            <button
+              onClick={() => setMode('single')}
+              className={`px-3 py-2 ${mode === 'single' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Single Day
+            </button>
+            <button
+              onClick={() => setMode('range')}
+              className={`px-3 py-2 ${mode === 'range' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Date Range
+            </button>
+          </div>
+
+          {mode === 'single' ? (
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
+              className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          ) : (
+            <>
+              <span className="text-xs text-gray-500 font-medium">From</span>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <span className="text-xs text-gray-500 font-medium">To</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </>
+          )}
+
           <button
             onClick={() => window.print()}
             className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800 flex items-center gap-2"
@@ -51,32 +101,30 @@ export default function DailyReportPage() {
       {loading && <p className="text-gray-400">Loading report...</p>}
 
       {report && (
-        <div ref={printRef} className="space-y-6">
+        <div className="space-y-6">
           {/* Print header */}
           <div className="hidden print:block text-center mb-6">
             <h1 className="text-2xl font-bold">PPN Finance</h1>
-            <p>Daily Report — {new Date(report.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <p>
+              {report.isRange
+                ? `Report — ${report.dateLabel}`
+                : `Daily Report — ${new Date(report.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
+            </p>
           </div>
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <SummaryCard label="NEW LOANS" value={report.newCount.toString()} color="bg-green-50 text-green-800 border-green-200" />
-            <SummaryCard label="TOTAL NEW PRINCIPAL" value={`Rs. ${report.totalNewPrincipal.toLocaleString('en-IN')}`} color="bg-blue-50 text-blue-800 border-blue-200" />
-            <SummaryCard label="CLOSED LOANS" value={report.closedCount.toString()} color="bg-gray-50 text-gray-700 border-gray-200" />
-            <SummaryCard label="TOTAL COLLECTED" value={`Rs. ${report.totalCollected.toLocaleString('en-IN')}`} color="bg-amber-50 text-amber-800 border-amber-200" />
-          </div>
-
-          {/* Interest earned */}
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">INTEREST EARNED TODAY</p>
-            <p className="text-xl font-bold mt-1 text-purple-800">Rs. {(report.totalInterestCollected || 0).toLocaleString('en-IN')}</p>
+            <SummaryCard label={`NEW LOANS — ${report.newCount}`} value={`Rs. ${report.totalNewPrincipal.toLocaleString('en-IN')}`} color="bg-green-50 text-green-800 border-green-200" />
+            <SummaryCard label={`CLOSED LOANS — ${report.closedCount}`} value={`Rs. ${report.totalCollected.toLocaleString('en-IN')}`} color="bg-gray-50 text-gray-700 border-gray-200" />
+            <SummaryCard label="PRINCIPAL RETURNED" value={`Rs. ${(report.totalPrincipalFromClosures || 0).toLocaleString('en-IN')}`} color="bg-blue-50 text-blue-800 border-blue-200" />
+            <SummaryCard label="INTEREST EARNED" value={`Rs. ${(report.totalInterestCollected || 0).toLocaleString('en-IN')}`} color="bg-emerald-50 text-emerald-800 border-emerald-200" />
           </div>
 
           {/* New Loans Table */}
           <section>
             <h2 className="font-semibold text-gray-800 mb-3 text-lg">New Loans ({report.newCount})</h2>
             {report.newLoans.length === 0 ? (
-              <p className="text-gray-400 text-sm">No new loans today.</p>
+              <p className="text-gray-400 text-sm">No new loans in this period.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="min-w-full text-sm">
@@ -115,7 +163,7 @@ export default function DailyReportPage() {
           <section>
             <h2 className="font-semibold text-gray-800 mb-3 text-lg">Closed Loans ({report.closedCount})</h2>
             {report.closedLoans.length === 0 ? (
-              <p className="text-gray-400 text-sm">No loans closed today.</p>
+              <p className="text-gray-400 text-sm">No loans closed in this period.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="min-w-full text-sm">
@@ -126,22 +174,29 @@ export default function DailyReportPage() {
                       <th className="px-4 py-3 text-left">Name</th>
                       <th className="px-4 py-3 text-left">Contact</th>
                       <th className="px-4 py-3 text-right">Principal (Rs.)</th>
-                      <th className="px-4 py-3 text-right">Collected (Rs.)</th>
+                      <th className="px-4 py-3 text-right">Interest (Rs.)</th>
+                      <th className="px-4 py-3 text-right">Total Collected (Rs.)</th>
                       <th className="px-4 py-3 text-left">Closed On</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {report.closedLoans.map((c, i) => (
-                      <tr key={c._id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-4 py-3 text-blue-500">{c.serialNumber}</td>
-                        <td className="px-4 py-3 text-amber-600 font-medium">{c.glNumber || '—'}</td>
-                        <td className="px-4 py-3 font-medium">{c.name}</td>
-                        <td className="px-4 py-3">{c.contactNumber}</td>
-                        <td className="px-4 py-3 text-right">{c.pawnAmount.toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3 text-right font-medium">{(c.totalAmountPaid || 0).toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3">{c.closedDate ? new Date(c.closedDate).toLocaleDateString('en-IN') : '—'}</td>
-                      </tr>
-                    ))}
+                    {report.closedLoans.map((c, i) => {
+                      const finalPmt = c.payments?.find((p) => p.type === 'full');
+                      const principalPaid = finalPmt?.principalReduced ?? 0;
+                      const interestPaid = finalPmt?.interestPaid ?? 0;
+                      return (
+                        <tr key={c._id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-4 py-3 text-blue-500">{c.serialNumber}</td>
+                          <td className="px-4 py-3 text-amber-600 font-medium">{c.glNumber || '—'}</td>
+                          <td className="px-4 py-3 font-medium">{c.name}</td>
+                          <td className="px-4 py-3">{c.contactNumber}</td>
+                          <td className="px-4 py-3 text-right">{principalPaid.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-3 text-right text-emerald-700 font-medium">{interestPaid.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-3 text-right font-bold">{(c.totalAmountPaid || 0).toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-3">{c.closedDate ? new Date(c.closedDate).toLocaleDateString('en-IN') : '—'}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

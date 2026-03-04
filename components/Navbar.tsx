@@ -21,6 +21,7 @@ export default function Navbar() {
     { href: '/clients/new', label: '+ New Pawn' },
     { href: '/closed', label: 'Closed Records' },
     { href: '/admin/report', label: 'Daily Report' },
+    { href: '/admin/cashflow', label: 'Cash Flow' },
     { href: '/admin/users', label: 'Users' },
   ];
 

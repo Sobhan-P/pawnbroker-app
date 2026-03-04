@@ -52,6 +52,7 @@ const PaymentSchema = new Schema<PaymentEntry>(
     facePhotoUrl: { type: String },
     jewelleryPhotoUrl: { type: String },
     resetsInterestClock: { type: Boolean },
+    discount: { type: Number },
     processedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     processedByName: { type: String },
   },

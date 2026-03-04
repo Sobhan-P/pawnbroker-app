@@ -10,6 +10,7 @@ interface ReceiptProps {
   facePhotoUrl?: string;
   jewelleryPhotoUrl?: string;
   amountPaid: number;
+  discount?: number;
   onClose: () => void;
   /** Pass outstanding calculated BEFORE the payment was recorded to get correct interest breakdown */
   prePaymentOutstanding?: OutstandingResult;
@@ -21,6 +22,7 @@ export default function Receipt({
   facePhotoUrl,
   jewelleryPhotoUrl,
   amountPaid,
+  discount,
   onClose,
   prePaymentOutstanding,
 }: ReceiptProps) {
@@ -174,10 +176,23 @@ export default function Receipt({
                 <span className="text-gray-600">Total Interest</span>
                 <span className="font-medium">Rs. {outstanding.totalInterest.toLocaleString('en-IN')}</span>
               </div>
-              <div className="flex justify-between text-base font-bold text-gray-900 pt-1 border-t border-gray-200">
-                <span>Total Due</span>
-                <span>Rs. {outstanding.totalDue.toLocaleString('en-IN')}</span>
-              </div>
+              {discount && discount > 0 ? (
+                <>
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Discount on Interest</span>
+                    <span className="font-medium">− Rs. {discount.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold text-gray-900 pt-1 border-t border-gray-200">
+                    <span>Total Due (after discount)</span>
+                    <span>Rs. {(outstanding.totalDue - discount).toLocaleString('en-IN')}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-base font-bold text-gray-900 pt-1 border-t border-gray-200">
+                  <span>Total Due</span>
+                  <span>Rs. {outstanding.totalDue.toLocaleString('en-IN')}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -204,14 +219,14 @@ export default function Receipt({
                 <div className="text-center">
                   <p className="text-xs text-gray-500 uppercase mb-2">Customer Photo</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={facePhotoUrl} alt="Customer face" className="w-36 h-36 object-cover rounded-xl border-2 border-gray-300 mx-auto" />
+                  <img src={facePhotoUrl} alt="Customer face" className="w-36 h-36 object-contain bg-gray-100 rounded-xl border-2 border-gray-300 mx-auto" />
                 </div>
               )}
               {jewelleryPhotoUrl && (
                 <div className="text-center">
                   <p className="text-xs text-gray-500 uppercase mb-2">Jewellery Photo</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={jewelleryPhotoUrl} alt="Jewellery" className="w-36 h-36 object-cover rounded-xl border-2 border-gray-300 mx-auto" />
+                  <img src={jewelleryPhotoUrl} alt="Jewellery" className="w-36 h-36 object-contain bg-gray-100 rounded-xl border-2 border-gray-300 mx-auto" />
                 </div>
               )}
             </div>

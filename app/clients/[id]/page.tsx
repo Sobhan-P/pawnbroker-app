@@ -30,6 +30,7 @@ function ClientDetailContent() {
   const [receiptFaceUrl, setReceiptFaceUrl] = useState<string | null>(null);
   const [receiptJewelleryUrl, setReceiptJewelleryUrl] = useState<string | null>(null);
   const [receiptAmountPaid, setReceiptAmountPaid] = useState(0);
+  const [receiptDiscount, setReceiptDiscount] = useState(0);
   const [receiptOutstanding, setReceiptOutstanding] = useState<OutstandingResult | null>(null);
 
   // Pawn entry receipt — shown immediately after creating a new loan
@@ -39,6 +40,7 @@ function ClientDetailContent() {
   const [closingFace, setClosingFace] = useState<string | null>(null);
   const [closingJewellery, setClosingJewellery] = useState<string | null>(null);
   const [closeAmount, setCloseAmount] = useState('');
+  const [closeDiscount, setCloseDiscount] = useState('');
 
   // Partial payment form state
   const [partialFace, setPartialFace] = useState<string | null>(null);
@@ -92,20 +94,22 @@ function ClientDetailContent() {
   async function handleClose() {
     if (!closeAmount) return alert('Please enter the total amount paid');
     const savedAmount = parseFloat(closeAmount);
-    if (outstanding && savedAmount < outstanding.totalDue) {
+    const discount = parseFloat(closeDiscount) || 0;
+    if (outstanding && savedAmount + discount < outstanding.totalDue) {
       return alert(
-        `Cannot close loan with a partial amount.\nTotal due: Rs. ${outstanding.totalDue.toLocaleString('en-IN')}\nEntered: Rs. ${savedAmount.toLocaleString('en-IN')}\n\nUse "Partial Payment" to record a partial payment instead.`
+        `Amount + discount (Rs. ${(savedAmount + discount).toLocaleString('en-IN')}) is less than total due (Rs. ${outstanding.totalDue.toLocaleString('en-IN')}).\n\nUse "Partial Payment" to record a partial payment instead.`
       );
     }
     setProcessing(true);
     const savedOutstanding = outstanding;
     const savedFace = closingFace;
     const savedJewellery = closingJewellery;
+    const savedDiscount = discount;
 
     const res = await fetch(`/api/clients/${id}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ totalAmountPaid: savedAmount, closingFacePhoto: savedFace, closingJewelleryPhoto: savedJewellery }),
+      body: JSON.stringify({ totalAmountPaid: savedAmount, discount, closingFacePhoto: savedFace, closingJewelleryPhoto: savedJewellery }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -113,6 +117,7 @@ function ClientDetailContent() {
       setReceiptFaceUrl(savedFace);
       setReceiptJewelleryUrl(savedJewellery);
       setReceiptAmountPaid(savedAmount);
+      setReceiptDiscount(savedDiscount);
       setReceiptOutstanding(savedOutstanding);
       setReceiptType('close');
       setShowReceipt(true);
@@ -194,6 +199,7 @@ function ClientDetailContent() {
           facePhotoUrl={receiptFaceUrl || undefined}
           jewelleryPhotoUrl={receiptJewelleryUrl || undefined}
           amountPaid={receiptAmountPaid}
+          discount={receiptDiscount || (client.payments?.find(p => p.type === 'full')?.discount)}
           prePaymentOutstanding={receiptOutstanding || undefined}
           onClose={() => setShowReceipt(false)}
         />
@@ -290,8 +296,17 @@ function ClientDetailContent() {
                   </div>
                   <p className="text-gray-700 mt-0.5">
                     Paid: <strong>Rs. {p.amountPaid.toLocaleString('en-IN')}</strong>
-                    {p.principalReduced > 0 && ` | Principal: Rs. ${p.principalReduced.toLocaleString('en-IN')}`}
-                    {p.interestPaid > 0 && ` | Interest: Rs. ${p.interestPaid.toLocaleString('en-IN')}`}
+                    {(p.principalReduced > 0 || p.interestPaid > 0) && (
+                      <span className="text-gray-500 text-xs ml-1">
+                        ({[
+                          p.principalReduced > 0 && `Principal: Rs. ${p.principalReduced.toLocaleString('en-IN')}`,
+                          p.interestPaid > 0 && `Interest: Rs. ${p.interestPaid.toLocaleString('en-IN')}`,
+                        ].filter(Boolean).join(' + ')})
+                      </span>
+                    )}
+                    {p.discount && p.discount > 0 ? (
+                      <span className="text-emerald-600 text-xs ml-1">(Discount: Rs. {p.discount.toLocaleString('en-IN')})</span>
+                    ) : null}
                   </p>
                   {p.processedByName && <p className="text-gray-400">By: {p.processedByName}</p>}
                 </div>
@@ -345,8 +360,26 @@ function ClientDetailContent() {
                     placeholder={outstanding ? `TOTAL DUE: Rs. ${outstanding.totalDue.toLocaleString('en-IN')}` : 'AMOUNT'}
                     value={closeAmount}
                     onChange={(e) => setCloseAmount(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     className="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Discount on Interest (Rs.) — Optional</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={closeDiscount}
+                    onChange={(e) => setCloseDiscount(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
+                  />
+                  {closeDiscount && outstanding && parseFloat(closeDiscount) > 0 && (
+                    <p className="text-xs text-emerald-700 mt-1">
+                      Effective total: Rs. {(outstanding.totalDue - (parseFloat(closeDiscount) || 0)).toLocaleString('en-IN')}
+                      {' '}(Interest reduced by Rs. {parseFloat(closeDiscount).toLocaleString('en-IN')})
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <button onClick={handleClose} disabled={processing} className="bg-red-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50">
@@ -369,6 +402,7 @@ function ClientDetailContent() {
                     placeholder="AMOUNT PAID"
                     value={partialAmountPaid}
                     onChange={(e) => { setPartialAmountPaid(e.target.value); recalcPartialSplit(e.target.value); }}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
                   />
                 </div>
@@ -448,7 +482,10 @@ function PhotoThumb({ url, label }: { url?: string; label: string }) {
   return (
     <div>
       <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <Image src={url} alt={label} width={96} height={96} className="w-24 h-24 object-cover rounded border" />
+      {/* object-contain shows the full image including the timestamp bar at the bottom */}
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        <Image src={url} alt={label} width={160} height={160} className="w-40 h-40 object-contain bg-gray-100 rounded border hover:opacity-90 transition-opacity" />
+      </a>
     </div>
   );
 }

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await connectDB();
   const { id } = await params;
   const body = await req.json();
-  const { totalAmountPaid, closingFacePhoto, closingJewelleryPhoto } = body;
+  const { totalAmountPaid, closingFacePhoto, closingJewelleryPhoto, discount = 0 } = body;
 
   const client = await Client.findById(id);
   if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -32,12 +32,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (closingFacePhoto) closingFacePhotoUrl = await uploadImage(closingFacePhoto, 'closing-face');
   if (closingJewelleryPhoto) closingJewelleryPhotoUrl = await uploadImage(closingJewelleryPhoto, 'closing-jewellery');
 
+  const effectiveInterest = Math.max(0, totalInterest - discount);
   const paymentEntry = {
     date: new Date(),
     type: 'full' as const,
     amountPaid: totalAmountPaid,
     principalReduced: currentPrincipal,
-    interestPaid: totalInterest,
+    interestPaid: effectiveInterest,
+    discount: discount || undefined,
     facePhotoUrl: closingFacePhotoUrl,
     jewelleryPhotoUrl: closingJewelleryPhotoUrl,
     processedBy: session.user.id,
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     glNumber: client.glNumber,
     clientName: client.name,
     amount: totalAmountPaid,
-    details: `Loan closed. Amount paid: Rs.${totalAmountPaid}`,
+    details: `Loan closed. Amount paid: Rs.${totalAmountPaid}${discount ? ` | Discount: Rs.${discount}` : ''}`,
   });
 
   return NextResponse.json(updated);

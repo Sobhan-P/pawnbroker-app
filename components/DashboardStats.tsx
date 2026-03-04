@@ -15,7 +15,7 @@ export default function DashboardStatsCard() {
 
   if (!stats) return <p className="text-gray-500">Loading stats...</p>;
 
-  const cards = [
+  const mainCards = [
     {
       label: 'ACTIVE LOANS',
       value: stats.totalActive,
@@ -42,18 +42,50 @@ export default function DashboardStatsCard() {
     },
   ];
 
+  const todayCards = [
+    {
+      label: "TODAY'S NEW LOANS",
+      value: stats.todayNewCount,
+      sub: stats.todayNewCount === 1 ? '1 loan disbursed today' : `${stats.todayNewCount} loans disbursed today`,
+      color: 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200',
+      href: '/admin/report',
+    },
+    {
+      label: "TODAY'S CLOSED LOANS",
+      value: stats.todayClosedCount,
+      sub: stats.todayClosedCount === 1 ? '1 loan closed today' : `${stats.todayClosedCount} loans closed today`,
+      color: 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200',
+      href: '/admin/report',
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {cards.map((c) => (
-        <Link
-          key={c.label}
-          href={c.href}
-          className={`rounded-xl p-5 shadow border transition-colors cursor-pointer ${c.color}`}
-        >
-          <p className="text-xs font-semibold tracking-wide opacity-70">{c.label}</p>
-          <p className="text-2xl font-bold mt-1">{c.value}</p>
-        </Link>
-      ))}
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {mainCards.map((c) => (
+          <Link
+            key={c.label}
+            href={c.href}
+            className={`rounded-xl p-5 shadow border transition-colors cursor-pointer ${c.color}`}
+          >
+            <p className="text-xs font-semibold tracking-wide opacity-70">{c.label}</p>
+            <p className="text-2xl font-bold mt-1">{c.value}</p>
+          </Link>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {todayCards.map((c) => (
+          <Link
+            key={c.label}
+            href={c.href}
+            className={`rounded-xl px-5 py-4 shadow border transition-colors cursor-pointer ${c.color}`}
+          >
+            <p className="text-xs font-semibold tracking-wide opacity-70">{c.label}</p>
+            <p className="text-3xl font-bold mt-1">{c.value}</p>
+            <p className="text-xs mt-1 opacity-60">{c.sub}</p>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

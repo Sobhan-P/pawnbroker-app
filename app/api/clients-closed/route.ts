@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       toDate.setHours(23, 59, 59, 999);
       dateFilter.$lte = toDate;
     }
-    query.closedDate = dateFilter;
+    query.pawnDate = dateFilter;
   }
 
   const clients = await Client.find(query).sort({ closedDate: -1 });

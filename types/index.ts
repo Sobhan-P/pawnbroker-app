@@ -7,6 +7,7 @@ export interface PaymentEntry {
   interestPaid: number;
   facePhotoUrl?: string;
   jewelleryPhotoUrl?: string;
+  discount?: number;
   processedByName?: string;
 }
 
@@ -44,6 +45,8 @@ export interface DashboardStats {
   totalPawnAmount: number;
   overdueCount: number;
   totalClosed: number;
+  todayNewCount: number;
+  todayClosedCount: number;
 }
 
 export interface IUser {
@@ -65,13 +68,53 @@ export interface IAuditLog {
   createdAt: string;
 }
 
+export interface ITransaction {
+  _id: string;
+  date: string;
+  type: 'income' | 'expense';
+  amount: number;
+  tag: string;
+  description?: string;
+  recordedByName?: string;
+  createdAt: string;
+}
+
+export interface CashflowDay {
+  date: string; // YYYY-MM-DD IST
+  loansOut: number;
+  collectionsIn: number;
+  otherIncome: number;
+  otherExpenses: number;
+  net: number;
+}
+
+export interface CashflowSummary {
+  initialBalance: number;
+  runningBalance: number;
+  period: {
+    loansOut: number;
+    collectionsIn: number;
+    pawnNet: number;
+    otherIncome: number;
+    otherExpenses: number;
+    otherNet: number;
+    totalNet: number;
+  };
+  days: CashflowDay[];
+  transactions: ITransaction[];
+}
+
 export interface DailyReport {
   date: string;
+  dateLabel?: string;
+  isRange?: boolean;
   newLoans: IClient[];
   closedLoans: IClient[];
   totalNewPrincipal: number;
   totalCollected: number;
   totalInterestCollected: number;
+  totalPrincipalFromClosures: number;
+  totalInterestFromClosures: number;
   newCount: number;
   closedCount: number;
 }
