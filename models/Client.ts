@@ -9,6 +9,7 @@ export interface PaymentEntry {
   facePhotoUrl?: string;
   jewelleryPhotoUrl?: string;
   resetsInterestClock?: boolean;
+  discount?: number;
   processedBy?: mongoose.Types.ObjectId;
   processedByName?: string;
 }
