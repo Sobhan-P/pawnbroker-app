@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import withSerwist from "@serwist/next";
 
 const securityHeaders = [
   // Prevent the page from being embedded in iframes (clickjacking protection)
@@ -35,9 +34,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// withSerwist adds webpack plugins. Next.js 16 uses Turbopack in dev, which conflicts with webpack.
-// Only wrap with serwist for production builds — dev runs Turbopack without it.
-const isProd = process.env.NODE_ENV === "production";
-export default isProd
-  ? withSerwist({ swSrc: "app/sw.ts", swDest: "public/sw.js", reloadOnOnline: true })(nextConfig)
-  : nextConfig;
+export default nextConfig;
