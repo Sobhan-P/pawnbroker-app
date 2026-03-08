@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import ClientTable from '@/components/ClientTable';
+import DateInput from '@/components/DateInput';
 import { IClient } from '@/types';
+import { getTodayIST, getMonthStartIST } from '@/lib/dateUtils';
 
 export default function ClosedRecordsPage() {
   const [clients, setClients] = useState<IClient[]>([]);
   const [search, setSearch] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [from, setFrom] = useState(getMonthStartIST());
+  const [to, setTo] = useState(getTodayIST());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,21 +37,17 @@ export default function ClosedRecordsPage() {
           className="flex-1 min-w-0 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
         />
         <div className="flex gap-3 shrink-0">
-          <input
+          <DateInput
             id="closed-from-date"
-            type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-            className="border rounded-lg px-3 py-2 text-sm min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="!min-w-32"
           />
-          <input
+          <DateInput
             id="closed-to-date"
-            type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-            className="border rounded-lg px-3 py-2 text-sm min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="!min-w-32"
           />
         </div>
         {(search || from || to) && (

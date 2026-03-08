@@ -4,6 +4,15 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DashboardStats } from '@/types';
 
+// Compute current Indian FY start year label e.g. "2025–26"
+function getFYLabel() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-indexed, so March = 2
+  const year = now.getFullYear();
+  const fyStartYear = month < 3 ? year - 1 : year;
+  return `FY ${fyStartYear}–${String(fyStartYear + 1).slice(2)}`;
+}
+
 export default function DashboardStatsCard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
@@ -59,6 +68,8 @@ export default function DashboardStatsCard() {
     },
   ];
 
+  const fyLabel = getFYLabel();
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -86,6 +97,15 @@ export default function DashboardStatsCard() {
           </Link>
         ))}
       </div>
+      {/* FY Interest Earned */}
+      <Link
+        href="/admin/report"
+        className="block rounded-xl px-5 py-4 shadow border bg-purple-50 text-purple-800 hover:bg-purple-100 border-purple-200 transition-colors cursor-pointer"
+      >
+        <p className="text-xs font-semibold tracking-wide opacity-70">TOTAL INTEREST EARNED — {fyLabel}</p>
+        <p className="text-3xl font-bold mt-1">Rs. {(stats.fyInterestEarned ?? 0).toLocaleString('en-IN')}</p>
+        <p className="text-xs mt-1 opacity-60">April 1 to today (Indian Financial Year)</p>
+      </Link>
     </div>
   );
 }

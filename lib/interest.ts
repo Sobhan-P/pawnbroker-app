@@ -1,25 +1,29 @@
-// Interest calculation engine for PPN Finance
-// Rates: Month 1 = 12%, Months 2-3 = 18%, Month 4+ = 24%
-// Days are calculated based on actual UTC calendar days in each month period
+// Interest calculation engine for SB Finance
+// Tiered annual rates: Months 1–3 = 18%, Months 4–12 = 24%, After 12 mo = Compounding
+// Denominator: actual days in each calendar month (not fixed 360)
+// Timezone: all date logic uses IST (Asia/Kolkata, UTC+5:30)
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
 /**
- * Normalize any date to UTC midnight (avoids timezone-shift bugs with setHours).
- * e.g. "2025-03-01T00:00:00.000Z" stays March 1 regardless of server/client timezone.
+ * Convert any date to UTC midnight equivalent of IST midnight.
+ * e.g. IST 2025-09-17 00:00 → UTC 2025-09-16 18:30 → represented as UTC midnight of 2025-09-17
  */
 function toUTCMidnight(d: Date | string): Date {
   const dt = d instanceof Date ? d : new Date(d);
-  return new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()));
+  const ist = new Date(dt.getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - IST_OFFSET_MS);
 }
 
 export interface InterestPeriod {
   monthNumber: number;
   monthName: string; // e.g., "January 2025"
-  rate: number;      // percentage e.g. 12
+  rate: number;      // percentage e.g. 12, 18, 24
   daysHeld: number;
   daysInCalendarMonth: number;
   interest: number;
@@ -62,8 +66,11 @@ export function getDaysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 }
 
+/**
+ * Returns the annual interest rate for a given month number.
+ * Months 1-3 = 18%, Month 4+ = 24% p.a.
+ */
 export function getRateForMonth(monthNumber: number): number {
-  if (monthNumber === 1) return 0.12;
   if (monthNumber <= 3) return 0.18;
   return 0.24;
 }
@@ -72,84 +79,96 @@ export function calculateInterestFromDate(
   principal: number,
   fromDate: Date | string,
   toDate: Date | string,
-  applyMinimumDays: boolean = false
-): { totalInterest: number; periods: InterestPeriod[] } {
+  applyMinimumDays: boolean = false,
+  manualRate?: number // [NEW] if present, bypass tiered/compounding
+): { totalInterest: number; rawTotalFloat: number; periods: InterestPeriod[] } {
   const periods: InterestPeriod[] = [];
-  let totalInterest = 0;
   let monthNumber = 1;
+  let currentPrincipal = principal;
 
-  // Use UTC midnight to avoid any local-timezone offset shifting the date
+  // Use IST-aware UTC midnight
   let periodStart = toUTCMidnight(fromDate);
   const rawEndDate = toUTCMidnight(toDate);
 
-  // Minimum 10-day interest rule: only applied for the initial loan period (from pawnDate).
-  // After an interest payment resets the clock, no minimum applies for the new period.
+  // Minimum 15-day interest rule: only applied for the initial loan period (from pawnDate).
   const totalDays = Math.round(
     (rawEndDate.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)
   );
-  const endDate = (applyMinimumDays && totalDays < 10)
-    ? new Date(periodStart.getTime() + 10 * 24 * 60 * 60 * 1000)
+  const endDate = (applyMinimumDays && totalDays < 15)
+    ? new Date(periodStart.getTime() + 15 * 24 * 60 * 60 * 1000)
     : rawEndDate;
 
+  // Track raw (unrounded) running total
+  let rawTotalFloat = 0;
+  let yearAccumulatedInterest = 0;
+
+  const isFixedRate = manualRate !== undefined && manualRate !== null && manualRate > 0;
+
   while (periodStart < endDate) {
-    // End of this period = first day of the NEXT calendar month (calendar month boundaries)
-    const periodEnd = new Date(Date.UTC(
-      periodStart.getUTCFullYear(),
-      periodStart.getUTCMonth() + 1,
+    // End of this period = first day of the NEXT calendar month
+    // To find the next month's IST midnight, we first get the currently represented IST month/year
+    const currentIST = new Date(periodStart.getTime() + IST_OFFSET_MS);
+    const nextMonthUTC = new Date(Date.UTC(
+      currentIST.getUTCFullYear(),
+      currentIST.getUTCMonth() + 1,
       1
-    ));
+    ) - IST_OFFSET_MS);
 
-    // Actual days in the calendar month where this period starts (UTC)
+    const effectiveEnd = nextMonthUTC < endDate ? nextMonthUTC : endDate;
     const daysInCalendarMonth = getDaysInMonth(
-      periodStart.getUTCFullYear(),
-      periodStart.getUTCMonth()
+      currentIST.getUTCFullYear(),
+      currentIST.getUTCMonth()
     );
-
-    // Effective end (whichever is earlier: period end or toDate)
-    const effectiveEnd = periodEnd < endDate ? periodEnd : endDate;
-
-    // Days actually held in this period
     const daysHeld = Math.round(
       (effectiveEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    if (daysHeld <= 0) break;
+    if (daysHeld < 0) break; // Safety break
 
-    const rate = getRateForMonth(monthNumber);
-    // Annual rate divided by 12 gives monthly rate; then prorate by days in month
-    const interest = principal * (rate / 12) * (daysHeld / daysInCalendarMonth);
-    const monthName = `${MONTH_NAMES[periodStart.getUTCMonth()]} ${periodStart.getUTCFullYear()}`;
+    if (daysHeld > 0) {
+      // If manualRate is provided, use it flatly. Otherwise use tiered logic.
+      const annualRate = isFixedRate ? (manualRate / 100) : getRateForMonth(monthNumber);
 
-    periods.push({
-      monthNumber,
-      monthName,
-      rate: rate * 100,
-      daysHeld,
-      daysInCalendarMonth,
-      interest: Math.round(interest),
-      startDate: new Date(periodStart),
-      endDate: new Date(effectiveEnd),
-    });
+      // Formula: (CurrentPrincipal × AnnualRate ÷ 12) ÷ DaysInCalendarMonth × daysHeld
+      const interest = (currentPrincipal * (annualRate / 12)) / daysInCalendarMonth * daysHeld;
+      const monthName = `${MONTH_NAMES[currentIST.getUTCMonth()]} ${currentIST.getUTCFullYear()}${(!isFixedRate && monthNumber > 12) ? ' (Compounded)' : ''}`;
 
-    totalInterest += interest;
+      rawTotalFloat += interest;
+      yearAccumulatedInterest += interest;
 
-    if (periodEnd >= endDate) break;
-    periodStart = new Date(periodEnd);
+      periods.push({
+        monthNumber,
+        monthName,
+        rate: Math.round(annualRate * 100),
+        daysHeld,
+        daysInCalendarMonth,
+        interest: Math.round(interest),
+        startDate: new Date(periodStart),
+        endDate: new Date(effectiveEnd),
+      });
+
+      // Compounding logic: Only apply if NOT using a fixed rate
+      if (!isFixedRate && monthNumber % 12 === 0) {
+        currentPrincipal += yearAccumulatedInterest;
+        yearAccumulatedInterest = 0;
+      }
+    }
+
+    if (effectiveEnd >= endDate) break;
+
+    periodStart = nextMonthUTC;
     monthNumber++;
   }
 
-  // Sum the already-rounded period interests so the displayed breakdown always matches
-  // the totalInterest used for payment splitting. Using Math.round(accumulated_raw_total)
-  // instead can silently differ from the sum of displayed period amounts, causing the
-  // system to deduct e.g. Rs.2 from a payment that shows Rs.0 in the breakdown.
-  return { totalInterest: periods.reduce((s, p) => s + p.interest, 0), periods };
+  return { totalInterest: periods.reduce((s, p) => s + p.interest, 0), rawTotalFloat, periods };
 }
 
 export function calculateOutstanding(
   pawnAmount: number,
   pawnDate: Date | string,
   payments: PaymentRecord[],
-  asOfDate: Date = new Date()
+  asOfDate: Date = new Date(),
+  interestRate?: number // [NEW]
 ): OutstandingResult {
   const sortedPayments = [...payments].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -160,13 +179,11 @@ export function calculateOutstanding(
   let clockStart: Date = toUTCMidnight(pawnDate);
   // interestCreditBalance: partial interest already paid that has NOT reset the clock
   let interestCreditBalance = 0;
-  // Use IST offset so payment dates match how effectiveAsOf is computed below
-  const IST_OFFSET_MS = 330 * 60 * 1000;
 
   for (const payment of sortedPayments) {
     if (payment.type === 'full') continue; // loan already closed
 
-    // Reduce principal if applicable
+    // Reduce principal if applicable (ignore negative top-up entries)
     if (payment.principalReduced > 0) {
       currentPrincipal -= payment.principalReduced;
     }
@@ -176,17 +193,10 @@ export function calculateOutstanding(
 
     if (resets) {
       // Full interest was paid → reset the clock.
-      // Convert payment timestamp to IST date so that a payment made at e.g. 00:30 IST
-      // (UTC previous-day) still resets to the correct IST calendar date.
-      const paymentIST = new Date(new Date(payment.date).getTime() + IST_OFFSET_MS);
-      const paymentDateUTC = toUTCMidnight(paymentIST);
-      // Reset to the DAY AFTER payment. The interest engine uses effectiveAsOf as an
-      // exclusive upper bound — it charges days from clockStart up to (but NOT including)
-      // effectiveAsOf midnight. So a payment on March 3 covers interest through March 2.
-      // Without this +1, March 3 gets charged again on the very next check (double-day).
-      // With this fix: clock = March 4 → the next check on March 4 shows 0 days owed,
-      // matching the user's expectation of "paid till today."
-      clockStart = new Date(paymentDateUTC.getTime() + 24 * 60 * 60 * 1000);
+      // Use IST date so a payment at 00:30 IST still resets to the correct IST calendar date.
+      const paymentDate = toUTCMidnight(payment.date);
+      // Reset to the DAY AFTER payment to avoid double-charging the same day.
+      clockStart = new Date(paymentDate.getTime() + 24 * 60 * 60 * 1000);
       interestCreditBalance = 0;
     } else {
       // Only partial interest paid → accumulate credit, clock keeps running
@@ -194,25 +204,24 @@ export function calculateOutstanding(
     }
   }
 
-  // Convert asOfDate to IST before extracting the date. Without this, before 05:30 IST
-  // the UTC date is still the previous day, causing the current month to not appear.
-  const asOfIST = new Date(asOfDate.getTime() + IST_OFFSET_MS);
-  const effectiveAsOf = new Date(
-    Date.UTC(asOfIST.getUTCFullYear(), asOfIST.getUTCMonth(), asOfIST.getUTCDate())
-  );
+  // Convert asOfDate to IST before extracting the date.
+  const effectiveAsOf = toUTCMidnight(asOfDate);
 
-  // Apply the minimum 10-day rule only when the interest clock has never been reset
-  // (i.e., clockStart is still the original pawnDate). After a payment resets the clock,
-  // no minimum applies — the new period charges only actual days elapsed.
+  // Apply the minimum 15-day rule only when the interest clock has never been reset
   const pawnDateUTC = toUTCMidnight(pawnDate);
   const isInitialPeriod = clockStart.getTime() === pawnDateUTC.getTime();
 
-  const { totalInterest: rawInterest, periods } = calculateInterestFromDate(
+  const { totalInterest: rawInterestRounded, rawTotalFloat, periods } = calculateInterestFromDate(
     currentPrincipal,
     clockStart,
     effectiveAsOf,
-    isInitialPeriod
+    isInitialPeriod,
+    interestRate
   );
+  // Use raw float total to compute the accurate rounded interest.
+  // Math.max(1, ...) ensures small principals (e.g. Rs.111) don't show Rs.0
+  // when any interest days have actually elapsed.
+  const rawInterest = rawTotalFloat > 0 ? Math.max(1, Math.round(rawTotalFloat)) : rawInterestRounded;
 
   // Net interest = gross interest minus any partial payments already made
   const totalInterest = Math.max(0, rawInterest - interestCreditBalance);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IUser } from '@/types';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<IUser[]>([]);
@@ -199,7 +200,7 @@ export default function UsersPage() {
                       {u.role}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
+                  <td className="px-4 py-3 text-gray-500">{formatDateIST(u.createdAt)}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-3">
                       {u.role === 'admin' && (

@@ -3,11 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { IClient } from '@/types';
+import { formatDateIST, getTodayIST } from '@/lib/dateUtils';
+import DateInput from '@/components/DateInput';
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-function todayIST() {
-  return new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
-}
+// todayIST removed - replaced by getTodayIST
 
 const EXPENSE_TAGS = ['Rent', 'Salary', 'Electricity', 'Supplies', 'Maintenance', 'Other Expense'];
 
@@ -20,7 +19,7 @@ export default function EmployeePage() {
 
   // Expense form
   const [showExpense, setShowExpense] = useState(false);
-  const [expDate, setExpDate] = useState(todayIST());
+  const [expDate, setExpDate] = useState(getTodayIST());
   const [expTag, setExpTag] = useState('');
   const [expCustomTag, setExpCustomTag] = useState('');
   const [expAmount, setExpAmount] = useState('');
@@ -48,17 +47,26 @@ export default function EmployeePage() {
   }
 
   async function handleSendWhatsApp() {
-    setSending(true);
-    const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-    const todayIST = nowIST.toISOString().split('T')[0];
-    const data = await fetch(`/api/report?date=${todayIST}`).then((r) => r.json());
+    const today = getTodayIST();
+    const res = await fetch(`/api/report?date=${today}`);
+    if (!res.ok) {
+      alert('Failed to fetch daily summary');
+      setSending(false);
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
     setSending(false);
+    const partialCollected = (data.totalPartialPrincipalReduced || 0) + (data.totalPartialInterestCollected || 0);
+    const totalCollected = (data.totalCollected || 0) + partialCollected;
+    const partialCount = (data.partialPayments || []).length;
     const message =
-      `PPN Finance — Daily Summary (${todayIST})\n` +
+      `SB Finance — Daily Summary (${formatDateIST(today)})\n` +
       `New Loans: ${data.newCount || 0} | Amount: Rs.${(data.totalNewPrincipal || 0).toLocaleString('en-IN')}\n` +
       `Closed Loans: ${data.closedCount || 0} | Collected: Rs.${(data.totalCollected || 0).toLocaleString('en-IN')}\n` +
+      (partialCount > 0 ? `Partial Payments: ${partialCount} | Collected: Rs.${partialCollected.toLocaleString('en-IN')}\n` : '') +
+      `Total Collected: Rs.${totalCollected.toLocaleString('en-IN')}\n` +
       `Interest Earned Today: Rs.${(data.totalInterestCollected || 0).toLocaleString('en-IN')}`;
-    window.open(`https://wa.me/917530058236?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/919442008965?text=${encodeURIComponent(message)}`, '_blank');
   }
 
   async function handleSearch(e: React.FormEvent) {
@@ -66,10 +74,12 @@ export default function EmployeePage() {
     if (!search.trim()) return;
     setLoading(true);
     setSearched(true);
-    const [active, closed] = await Promise.all([
-      fetch(`/api/clients?search=${encodeURIComponent(search)}`).then((r) => r.json()),
-      fetch(`/api/clients-closed?search=${encodeURIComponent(search)}`).then((r) => r.json()),
+    const [resActive, resClosed] = await Promise.all([
+      fetch(`/api/clients?search=${encodeURIComponent(search)}`),
+      fetch(`/api/clients-closed?search=${encodeURIComponent(search)}`),
     ]);
+    const active = resActive.ok ? await resActive.json().catch(() => []) : [];
+    const closed = resClosed.ok ? await resClosed.json().catch(() => []) : [];
     setClients([...(Array.isArray(active) ? active : []), ...(Array.isArray(closed) ? closed : [])]);
     setLoading(false);
   }
@@ -135,10 +145,9 @@ export default function EmployeePage() {
             <form onSubmit={handleAddExpense} className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                <input
-                  type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)}
-                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                <DateInput
+                  value={expDate}
+                  onChange={(e) => setExpDate(e.target.value)}
                 />
               </div>
               <div>
@@ -221,13 +230,12 @@ export default function EmployeePage() {
                     <p className="text-sm text-gray-500">{c.contactNumber}</p>
                   </div>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
-                      c.status === 'active'
-                        ? isOverdue
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-green-100 text-green-700'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${c.status === 'active'
+                      ? isOverdue
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-green-100 text-green-700'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}
                   >
                     {c.status === 'active' ? (isOverdue ? 'Overdue' : 'Active') : 'Closed'}
                   </span>
@@ -241,7 +249,7 @@ export default function EmployeePage() {
                   <div>
                     <span className="text-xs text-gray-400">DUE DATE</span>
                     <p className={`font-medium ${isOverdue ? 'text-red-600' : ''}`}>
-                      {new Date(c.expectedReturnDate).toLocaleDateString('en-IN')}
+                      {formatDateIST(c.expectedReturnDate)}
                     </p>
                   </div>
                 </div>

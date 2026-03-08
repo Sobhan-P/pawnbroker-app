@@ -8,6 +8,7 @@ export interface PaymentEntry {
   facePhotoUrl?: string;
   jewelleryPhotoUrl?: string;
   discount?: number;
+  resetsInterestClock?: boolean;
   processedByName?: string;
 }
 
@@ -35,6 +36,13 @@ export interface IClient {
   closedDate?: string;
   totalAmountPaid?: number;
   payments: PaymentEntry[];
+  nomineeName?: string;
+  nomineePhone?: string;
+  nomineeRelationship?: string;
+  bankName?: string;
+  bankDate?: string;
+  bankAmount?: number;
+  repledgedFromId?: string;
   createdByName?: string;
   createdAt: string;
   updatedAt: string;
@@ -47,6 +55,7 @@ export interface DashboardStats {
   totalClosed: number;
   todayNewCount: number;
   todayClosedCount: number;
+  fyInterestEarned: number;
 }
 
 export interface IUser {
@@ -110,11 +119,19 @@ export interface DailyReport {
   isRange?: boolean;
   newLoans: IClient[];
   closedLoans: IClient[];
+  partialPayments?: {
+    clientId: string; clientName: string; glNumber: string; serialNumber: number;
+    date: string; amountPaid: number; principalReduced: number; interestPaid: number;
+    processedByName?: string;
+  }[];
   totalNewPrincipal: number;
   totalCollected: number;
   totalInterestCollected: number;
   totalPrincipalFromClosures: number;
   totalInterestFromClosures: number;
+  totalPartialPrincipalReduced?: number;
+  totalPartialInterestCollected?: number;
   newCount: number;
   closedCount: number;
+  fyInterestEarned?: number;
 }

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#F59E0B"/>
+  <!-- Subtle inner glow / depth -->
+  <rect x="24" y="24" width="464" height="464" rx="80" fill="#FBBF24" opacity="0.3"/>
+  <!-- JF text -->
+  <text
+    x="256"
+    y="340"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="240"
+    font-weight="bold"
+    fill="#1d4ed8"
+    text-anchor="middle"
+    letter-spacing="-8"
+  >PB</text>
+  <!-- Bottom label -->
+  <text
+    x="256"
+    y="430"
+    font-family="Arial, sans-serif"
+    font-size="52"
+    font-weight="600"
+    fill="#1d4ed8"
+    text-anchor="middle"
+    opacity="0.75"
+    letter-spacing="4"
+  >FINANCE</text>
+</svg>

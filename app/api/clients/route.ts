@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('search') || '';
-  const filter = searchParams.get('filter') || 'all'; // 'all' | 'overdue'
+  const filter = searchParams.get('filter') || 'all'; // 'all' | 'overdue' | 'bank'
+  const bankNameParam = searchParams.get('bankName') || '';
 
   const query: Record<string, unknown> = { status: 'active' };
 
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
 
   if (filter === 'overdue') {
     query.expectedReturnDate = { $lt: new Date() };
+  } else if (filter === 'bank' && bankNameParam) {
+    query.bankName = bankNameParam;
   }
 
   const clients = await Client.find(query).sort({ createdAt: -1 });
@@ -39,40 +42,45 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  await connectDB();
-  const body = await req.json();
-
-  const last = await Client.findOne({ serialNumber: { $exists: true } })
-    .sort({ serialNumber: -1 })
-    .select('serialNumber');
-  const serialNumber = (last?.serialNumber ?? 0) + 1;
-
-  const client = await Client.create({
-    ...body,
-    serialNumber,
-    payments: [],
-    createdBy: session.user.id,
-    createdByName: session.user.name,
-  });
-
-  await AuditLog.create({
-    action: 'loan_created',
-    performedBy: session.user.id,
-    performedByName: session.user.name,
-    loanId: client._id,
-    glNumber: client.glNumber,
-    clientName: client.name,
-    amount: client.pawnAmount,
-    details: `New loan of Rs.${client.pawnAmount} for ${client.name}`,
-  });
-
   try {
-    const dueDate = new Date(client.expectedReturnDate).toLocaleDateString('en-IN');
-    const msg = pawnConfirmationMessage(client.name, client.pawnAmount, 12, dueDate);
-    await sendWhatsApp(client.contactNumber, msg);
-  } catch {
-    // WhatsApp failure should not block the response
-  }
+    await connectDB();
+    const body = await req.json();
 
-  return NextResponse.json(client, { status: 201 });
+    const last = await Client.findOne({ serialNumber: { $exists: true } })
+      .sort({ serialNumber: -1 })
+      .select('serialNumber');
+    const serialNumber = (last?.serialNumber ?? 0) + 1;
+
+    const client = await Client.create({
+      ...body,
+      serialNumber,
+      payments: [],
+      createdBy: session.user.id,
+      createdByName: session.user.name,
+    });
+
+    await AuditLog.create({
+      action: 'loan_created',
+      performedBy: session.user.id,
+      performedByName: session.user.name,
+      loanId: client._id,
+      glNumber: client.glNumber,
+      clientName: client.name,
+      amount: client.pawnAmount,
+      details: `New loan of Rs.${client.pawnAmount} for ${client.name}`,
+    });
+
+    try {
+      const dueDate = new Date(client.expectedReturnDate).toLocaleDateString('en-IN');
+      const msg = pawnConfirmationMessage(client.name, client.pawnAmount, 12, dueDate);
+      await sendWhatsApp(client.contactNumber, msg);
+    } catch {
+      // WhatsApp failure should not block the response
+    }
+
+    return NextResponse.json(client, { status: 201 });
+  } catch (err) {
+    console.error('New client error:', err);
+    return NextResponse.json({ error: 'Failed to create client. Please check your data.' }, { status: 500 });
+  }
 }

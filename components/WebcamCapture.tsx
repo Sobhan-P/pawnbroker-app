@@ -38,7 +38,7 @@ function addTimestamp(dataUrl: string): Promise<string> {
 
       ctx.font = `bold ${fontSize}px monospace`;
 
-      const line1 = 'PPN FINANCE';
+      const line1 = 'SB FINANCE';
       const line2 = `${datePart}  ${timePart.toUpperCase()}`;
 
       // Full-width bar so text never overflows on any image size
@@ -64,6 +64,15 @@ function addTimestamp(dataUrl: string): Promise<string> {
   });
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function WebcamCapture({
   label,
   onCapture,
@@ -71,6 +80,7 @@ export default function WebcamCapture({
   defaultFacingMode = 'user',
 }: WebcamCaptureProps) {
   const webcamRef = useRef<Webcam>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(defaultFacingMode);
 
@@ -83,28 +93,65 @@ export default function WebcamCapture({
     }
   }, [onCapture]);
 
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    const stamped = await addTimestamp(dataUrl);
+    onCapture(stamped);
+    e.target.value = '';
+  }, [onCapture]);
+
   return (
     <div className="mb-4">
       <p className="text-sm font-medium text-gray-700 mb-1">{label}</p>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+
       {captured ? (
         <div className="flex items-center gap-3">
           <img src={captured} alt="Captured" className="w-24 h-24 object-cover rounded border" />
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="text-sm text-amber-700 underline"
+            >
+              Retake (Camera)
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-sm text-blue-600 underline"
+            >
+              Replace (Upload File)
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="text-sm text-amber-700 underline"
+            className="px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded text-sm hover:bg-amber-200"
           >
-            Retake
+            📷 Open Camera
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-300 rounded text-sm hover:bg-blue-100"
+          >
+            📎 Upload File
           </button>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded text-sm hover:bg-amber-200"
-        >
-          Open Camera
-        </button>
       )}
 
       {open && (

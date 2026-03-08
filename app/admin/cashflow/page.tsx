@@ -2,15 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { CashflowSummary, ITransaction } from '@/types';
-
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-
-function todayIST(): string {
-  return new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
-}
+import { formatDateIST, getTodayIST } from '@/lib/dateUtils';
+import DateInput from '@/components/DateInput';
 
 function monthStartIST(): string {
-  const d = new Date(Date.now() + IST_OFFSET_MS);
+  const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
 }
 
@@ -23,7 +19,7 @@ const EXPENSE_TAGS = ['Rent', 'Salary', 'Electricity', 'Supplies', 'Maintenance'
 
 export default function CashflowPage() {
   const [from, setFrom] = useState(monthStartIST());
-  const [to, setTo] = useState(todayIST());
+  const [to, setTo] = useState(getTodayIST());
   const [data, setData] = useState<CashflowSummary | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +29,7 @@ export default function CashflowPage() {
   const [savingBalance, setSavingBalance] = useState(false);
 
   // Add transaction form
-  const [txDate, setTxDate] = useState(todayIST());
+  const [txDate, setTxDate] = useState(getTodayIST());
   const [txType, setTxType] = useState<'income' | 'expense'>('expense');
   const [txTag, setTxTag] = useState('');
   const [txCustomTag, setTxCustomTag] = useState('');
@@ -106,17 +102,17 @@ export default function CashflowPage() {
           <p className="text-sm text-gray-500 mt-0.5">Track money in and out — pawn segment + other transactions</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500 font-medium">From</span>
-          <input
-            type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          <span className="text-xs text-gray-500 font-medium whitespace-nowrap">From</span>
+          <DateInput
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="w-40 sm:w-44"
           />
-          <span className="text-xs text-gray-500 font-medium">To</span>
-          <input
-            type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          <span className="text-xs text-gray-500 font-medium whitespace-nowrap">To</span>
+          <DateInput
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="w-40 sm:w-44"
           />
         </div>
       </div>
@@ -250,10 +246,9 @@ export default function CashflowPage() {
             <form onSubmit={addTransaction} className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                <input
-                  type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)}
-                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                <DateInput
+                  value={txDate}
+                  onChange={(e) => setTxDate(e.target.value)}
                 />
               </div>
               <div>
@@ -340,12 +335,11 @@ export default function CashflowPage() {
                     {(data.transactions as ITransaction[]).map((t, i) => (
                       <tr key={t._id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-4 py-3">
-                          {new Date(t.date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                          {formatDateIST(t.date)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
                             {t.type === 'income' ? 'Income' : 'Expense'}
                           </span>
                         </td>
@@ -435,13 +429,12 @@ function CalendarCell({ cell }: { cell: DayCell }) {
 
   return (
     <div
-      className={`rounded-lg border p-1.5 min-h-18 text-xs ${
-        !hasActivity
-          ? 'border-gray-100 bg-white'
-          : positive
+      className={`rounded-lg border p-1.5 min-h-18 text-xs ${!hasActivity
+        ? 'border-gray-100 bg-white'
+        : positive
           ? 'border-green-200 bg-green-50'
           : 'border-red-200 bg-red-50'
-      }`}
+        }`}
     >
       <p className="font-bold text-gray-700 mb-1">{cell.dayNumber}</p>
       {cell.loansOut > 0 && (

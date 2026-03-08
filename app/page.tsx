@@ -6,7 +6,7 @@ export default function Dashboard() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-blue-50 border border-blue-100 rounded-xl px-5 py-4">
         <div>
-          <h1 className="text-2xl font-bold text-blue-900">PPN Finance — Dashboard</h1>
+          <h1 className="text-2xl font-bold text-blue-900">SB Finance — Dashboard</h1>
           <p className="text-blue-400 text-sm mt-0.5">Gold Pawn Management Overview</p>
         </div>
         <Link

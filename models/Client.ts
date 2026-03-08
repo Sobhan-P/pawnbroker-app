@@ -37,6 +37,13 @@ export interface ClientDocument extends Document {
   closedDate?: Date;
   totalAmountPaid?: number;
   payments: PaymentEntry[];
+  nomineeName?: string;
+  nomineePhone?: string;
+  nomineeRelationship?: string;
+  bankName?: string;
+  bankDate?: Date;
+  bankAmount?: number;
+  repledgedFromId?: mongoose.Types.ObjectId;
   createdBy?: mongoose.Types.ObjectId;
   createdByName?: string;
   createdAt: Date;
@@ -84,6 +91,13 @@ const ClientSchema = new Schema<ClientDocument>(
     closedDate: { type: Date },
     totalAmountPaid: { type: Number },
     payments: { type: [PaymentSchema], default: [] },
+    nomineeName: { type: String, trim: true },
+    nomineePhone: { type: String, trim: true },
+    nomineeRelationship: { type: String, trim: true },
+    bankName: { type: String, trim: true },
+    bankDate: { type: Date },
+    bankAmount: { type: Number },
+    repledgedFromId: { type: Schema.Types.ObjectId, ref: 'Client' },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     createdByName: { type: String },
   },

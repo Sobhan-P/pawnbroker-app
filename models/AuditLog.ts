@@ -3,6 +3,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export type AuditAction =
   | 'loan_created'
   | 'loan_closed'
+  | 'loan_repledged'
   | 'interest_paid'
   | 'partial_payment'
   | 'user_created'
@@ -24,7 +25,7 @@ const AuditLogSchema = new Schema<AuditLogDocument>(
   {
     action: {
       type: String,
-      enum: ['loan_created', 'loan_closed', 'interest_paid', 'partial_payment', 'user_created', 'user_deleted'],
+      enum: ['loan_created', 'loan_closed', 'loan_repledged', 'interest_paid', 'partial_payment', 'user_created', 'user_deleted'],
       required: true,
     },
     performedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },

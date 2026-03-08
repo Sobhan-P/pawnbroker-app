@@ -2,18 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { DailyReport } from '@/types';
+import { formatDateIST, getTodayIST } from '@/lib/dateUtils';
+import DateInput from '@/components/DateInput';
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+// todayIST removed - replaced by getTodayIST from dateUtils
 
-function todayIST(): string {
-  return new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
+function getFYLabel() {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  const fyStartYear = month < 3 ? year - 1 : year;
+  return `FY ${fyStartYear}–${String(fyStartYear + 1).slice(2)}`;
 }
 
 export default function DailyReportPage() {
   const [mode, setMode] = useState<'single' | 'range'>('single');
-  const [date, setDate] = useState(todayIST());
-  const [from, setFrom] = useState(todayIST());
-  const [to, setTo] = useState(todayIST());
+  const [date, setDate] = useState(getTodayIST());
+  const [from, setFrom] = useState(getTodayIST());
+  const [to, setTo] = useState(getTodayIST());
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,32 +64,26 @@ export default function DailyReportPage() {
           </div>
 
           {mode === 'single' ? (
-            <input
-              type="date"
+            <DateInput
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-              className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="!w-48"
             />
           ) : (
-            <>
-              <span className="text-xs text-gray-500 font-medium">From</span>
-              <input
-                type="date"
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-500 font-medium whitespace-nowrap">From</span>
+              <DateInput
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-40 sm:w-44"
               />
-              <span className="text-xs text-gray-500 font-medium">To</span>
-              <input
-                type="date"
+              <span className="text-xs text-gray-500 font-medium whitespace-nowrap">To</span>
+              <DateInput
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                onClick={(e) => { try { (e.target as HTMLInputElement).showPicker(); } catch {} }}
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-40 sm:w-44"
               />
-            </>
+            </div>
           )}
 
           <button
@@ -104,11 +104,11 @@ export default function DailyReportPage() {
         <div className="space-y-6">
           {/* Print header */}
           <div className="hidden print:block text-center mb-6">
-            <h1 className="text-2xl font-bold">PPN Finance</h1>
+            <h1 className="text-2xl font-bold">SB Finance</h1>
             <p>
               {report.isRange
                 ? `Report — ${report.dateLabel}`
-                : `Daily Report — ${new Date(report.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
+                : `Daily Report — ${formatDateIST(report.date)}`}
             </p>
           </div>
 
@@ -116,9 +116,17 @@ export default function DailyReportPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <SummaryCard label={`NEW LOANS — ${report.newCount}`} value={`Rs. ${report.totalNewPrincipal.toLocaleString('en-IN')}`} color="bg-green-50 text-green-800 border-green-200" />
             <SummaryCard label={`CLOSED LOANS — ${report.closedCount}`} value={`Rs. ${report.totalCollected.toLocaleString('en-IN')}`} color="bg-gray-50 text-gray-700 border-gray-200" />
-            <SummaryCard label="PRINCIPAL RETURNED" value={`Rs. ${(report.totalPrincipalFromClosures || 0).toLocaleString('en-IN')}`} color="bg-blue-50 text-blue-800 border-blue-200" />
+            <SummaryCard label="PRINCIPAL RETURNED" value={`Rs. ${((report.totalPrincipalFromClosures || 0) + (report.totalPartialPrincipalReduced || 0)).toLocaleString('en-IN')}`} color="bg-blue-50 text-blue-800 border-blue-200" />
             <SummaryCard label="INTEREST EARNED" value={`Rs. ${(report.totalInterestCollected || 0).toLocaleString('en-IN')}`} color="bg-emerald-50 text-emerald-800 border-emerald-200" />
           </div>
+          {/* FY Interest Earned */}
+          {report.fyInterestEarned !== undefined && (
+            <SummaryCard
+              label={`TOTAL INTEREST EARNED — ${getFYLabel()} (Apr 1 to today)`}
+              value={`Rs. ${report.fyInterestEarned.toLocaleString('en-IN')}`}
+              color="bg-purple-50 text-purple-800 border-purple-200"
+            />
+          )}
 
           {/* New Loans Table */}
           <section>
@@ -149,7 +157,7 @@ export default function DailyReportPage() {
                         <td className="px-4 py-3">{c.contactNumber}</td>
                         <td className="px-4 py-3 max-w-36 truncate">{c.jewelleryDetails}</td>
                         <td className="px-4 py-3 text-right font-medium">{c.pawnAmount.toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3">{new Date(c.expectedReturnDate).toLocaleDateString('en-IN')}</td>
+                        <td className="px-4 py-3">{formatDateIST(c.expectedReturnDate)}</td>
                         <td className="px-4 py-3 text-gray-500">{c.createdByName || '—'}</td>
                       </tr>
                     ))}
@@ -192,8 +200,8 @@ export default function DailyReportPage() {
                           <td className="px-4 py-3">{c.contactNumber}</td>
                           <td className="px-4 py-3 text-right">{principalPaid.toLocaleString('en-IN')}</td>
                           <td className="px-4 py-3 text-right text-emerald-700 font-medium">{interestPaid.toLocaleString('en-IN')}</td>
-                          <td className="px-4 py-3 text-right font-bold">{(c.totalAmountPaid || 0).toLocaleString('en-IN')}</td>
-                          <td className="px-4 py-3">{c.closedDate ? new Date(c.closedDate).toLocaleDateString('en-IN') : '—'}</td>
+                          <td className="px-4 py-3 text-right font-bold">{(principalPaid + interestPaid).toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-3">{formatDateIST(c.closedDate)}</td>
                         </tr>
                       );
                     })}
@@ -203,8 +211,51 @@ export default function DailyReportPage() {
             )}
           </section>
 
+          {/* Partial Payments Table */}
+          {report.partialPayments && report.partialPayments.length > 0 && (
+            <section>
+              <h2 className="font-semibold text-gray-800 mb-1 text-lg">Partial Payments ({report.partialPayments.length})</h2>
+              <p className="text-xs text-gray-400 mb-3">Principal returned + interest collected via partial payments on this date</p>
+              <div className="overflow-x-auto rounded-xl border border-blue-100">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-blue-50 text-blue-800 font-semibold">
+                    <tr>
+                      <th className="px-4 py-3 text-left">GL No.</th>
+                      <th className="px-4 py-3 text-left">Name</th>
+                      <th className="px-4 py-3 text-right">Amount Paid (Rs.)</th>
+                      <th className="px-4 py-3 text-right">Principal Reduced (Rs.)</th>
+                      <th className="px-4 py-3 text-right">Interest Collected (Rs.)</th>
+                      <th className="px-4 py-3 text-left">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.partialPayments.map((p, i) => (
+                      <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}>
+                        <td className="px-4 py-3 text-amber-600 font-medium">{p.glNumber || '—'}</td>
+                        <td className="px-4 py-3 font-medium">{p.clientName}</td>
+                        <td className="px-4 py-3 text-right font-bold">{p.amountPaid.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-right text-blue-700">{p.principalReduced.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-right text-emerald-700">{p.interestPaid.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3">{formatDateIST(p.date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-blue-50 font-semibold text-blue-900">
+                    <tr>
+                      <td colSpan={2} className="px-4 py-2 text-right">Total</td>
+                      <td className="px-4 py-2 text-right">{report.partialPayments.reduce((s, p) => s + p.amountPaid, 0).toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-2 text-right text-blue-700">{(report.totalPartialPrincipalReduced || 0).toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-2 text-right text-emerald-700">{(report.totalPartialInterestCollected || 0).toLocaleString('en-IN')}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </section>
+          )}
+
           <div className="hidden print:block text-xs text-right mt-8 border-t pt-4">
-            Generated on {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} — PPN Finance
+            Generated on {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} — SB Finance
           </div>
         </div>
       )}

@@ -13,9 +13,19 @@ export default function SetupPage() {
 
   useEffect(() => {
     fetch('/api/setup')
-      .then((r) => r.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: 'Server error' }));
+          throw new Error(data.error || 'Failed to check setup status');
+        }
+        return res.json();
+      })
       .then((data) => {
         if (!data.setupRequired) setAlreadySetup(true);
+        setChecking(false);
+      })
+      .catch((err) => {
+        setError(err.message);
         setChecking(false);
       });
   }, []);
@@ -58,7 +68,7 @@ export default function SetupPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-600 px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">PPN Finance</h1>
+          <h1 className="text-2xl font-bold text-gray-900">SB Finance</h1>
           <p className="text-sm text-gray-500 mt-1">First-time Setup — Create Admin Account</p>
         </div>
 

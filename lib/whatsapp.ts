@@ -1,31 +1,23 @@
-import twilio from 'twilio';
+// WhatsApp message templates for Pawn Broker App
+// Twilio integration removed — stubs kept so existing imports compile without changes.
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+const CONTACT_NUMBER = '+91 95006 18457';
 
-const FROM = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
-
-export async function sendWhatsApp(to: string, message: string) {
-  const formattedTo = `whatsapp:+91${to.replace(/\D/g, '').slice(-10)}`;
-  try {
-    await client.messages.create({ from: FROM, to: formattedTo, body: message });
-  } catch (err) {
-    console.error('WhatsApp send error:', err);
-  }
+// No-op — Twilio removed. Replace with a new provider if needed in future.
+export async function sendWhatsApp(_to: string, _message: string): Promise<void> {
+  // no-op
 }
 
 export function pawnConfirmationMessage(name: string, amount: number, rate: number, dueDate: string) {
-  return `Hi ${name}, your gold pawn of Rs.${amount} has been recorded. Interest rate: ${rate}%/month. Due date: ${dueDate}. Please contact us for any queries. - Rise Again Web Solutions`;
+  return `Hi ${name}, your gold pawn of Rs.${amount} has been recorded at Pawn Broker App. Interest rate: ${rate}% p.a. Due date: ${dueDate}. Contact us: ${CONTACT_NUMBER}. - Pawn Broker App`;
 }
 
 export function dueDateAlertMessage(name: string, dueDate: string, total: number) {
-  return `Hi ${name}, reminder: your gold pawn is due on ${dueDate}. Total amount to clear: Rs.${total}. Please return the gold and settle dues. - Rise Again Web Solutions`;
+  return `Hi ${name}, reminder: your gold pawn at Pawn Broker App is due on ${dueDate}. Total amount to clear: Rs.${total}. Contact us: ${CONTACT_NUMBER}. - Pawn Broker App`;
 }
 
 export function monthlyReminderMessage(name: string, principal: number, interest: number, total: number) {
-  return `Hi ${name}, your pawn is overdue. Principal: Rs.${principal}, Accumulated Interest: Rs.${interest}, Total Due: Rs.${total}. Please clear at the earliest. - Rise Again Web Solutions`;
+  return `Hi ${name}, your pawn at Pawn Broker App is overdue. Principal: Rs.${principal}, Interest: Rs.${interest}, Total Due: Rs.${total}. Contact us: ${CONTACT_NUMBER}. - Pawn Broker App`;
 }
 
 export function dailySummaryMessage(
@@ -37,7 +29,7 @@ export function dailySummaryMessage(
   interestCollected: number
 ) {
   return (
-    `PPN Finance — Daily Summary (${date})\n` +
+    `Pawn Broker App — Daily Summary (${date})\n` +
     `New Loans: ${newCount} | Amount: Rs.${newPrincipal.toLocaleString('en-IN')}\n` +
     `Closed Loans: ${closedCount} | Collected: Rs.${totalCollected.toLocaleString('en-IN')}\n` +
     `Interest Earned Today: Rs.${interestCollected.toLocaleString('en-IN')}`
@@ -51,7 +43,7 @@ export async function sendDailySummaryWhatsApp(
   closedCount: number,
   totalCollected: number,
   interestCollected: number
-) {
+): Promise<void> {
   const msg = dailySummaryMessage(date, newCount, newPrincipal, closedCount, totalCollected, interestCollected);
-  await sendWhatsApp('7530058236', msg);
+  await sendWhatsApp('9500618457', msg);
 }

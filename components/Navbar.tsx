@@ -35,7 +35,7 @@ export default function Navbar() {
     <nav className="bg-linear-to-r from-blue-700 to-blue-500 text-white shadow-md">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href={isAdmin ? '/' : '/employee'} className="font-bold text-lg tracking-wide hover:opacity-80 transition-opacity flex items-center gap-2">
-          <span className="text-amber-300">PPN</span>
+          <span className="text-amber-300">SB</span>
           <span>Finance</span>
         </Link>
 
@@ -45,9 +45,8 @@ export default function Navbar() {
             <Link
               key={l.href}
               href={l.href}
-              className={`px-3 py-1.5 rounded transition-colors ${
-                pathname === l.href ? 'bg-white text-blue-700' : 'hover:bg-blue-600'
-              }`}
+              className={`px-3 py-1.5 rounded transition-colors ${pathname === l.href ? 'bg-white text-blue-700' : 'hover:bg-blue-600'
+                }`}
             >
               {l.label}
             </Link>
@@ -55,7 +54,10 @@ export default function Navbar() {
           <div className="ml-3 pl-3 border-l border-blue-400 flex items-center gap-2">
             <span className="text-blue-200 text-xs">{session.user.name}</span>
             <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
+              onClick={async () => {
+                await signOut({ redirect: false });
+                window.location.href = '/login';
+              }}
               className="px-3 py-1.5 rounded bg-blue-800 hover:bg-blue-900 text-white text-xs font-semibold transition-colors"
             >
               Logout
@@ -83,9 +85,8 @@ export default function Navbar() {
               key={l.href}
               href={l.href}
               onClick={() => setMenuOpen(false)}
-              className={`px-3 py-2.5 rounded transition-colors ${
-                pathname === l.href ? 'bg-white text-blue-700' : 'hover:bg-blue-700'
-              }`}
+              className={`px-3 py-2.5 rounded transition-colors ${pathname === l.href ? 'bg-white text-blue-700' : 'hover:bg-blue-700'
+                }`}
             >
               {l.label}
             </Link>
@@ -93,7 +94,10 @@ export default function Navbar() {
           <div className="border-t border-blue-700 pt-2 mt-1">
             <p className="text-blue-300 text-xs px-3 mb-1">{session.user.name} ({session.user.role})</p>
             <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
+              onClick={async () => {
+                await signOut({ redirect: false });
+                window.location.href = '/login';
+              }}
               className="w-full text-left px-3 py-2.5 rounded hover:bg-blue-700 text-red-300 font-semibold"
             >
               Logout

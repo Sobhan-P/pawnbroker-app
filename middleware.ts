@@ -5,21 +5,26 @@ import type { NextRequest } from 'next/server';
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow NextAuth routes, setup page, and login page
+  // Always allow NextAuth routes, setup page, login page, and admin-reset
   if (
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
+    pathname.startsWith('/api/admin-reset') ||
     pathname === '/login' ||
     pathname === '/setup'
   ) {
     return NextResponse.next();
   }
 
-  // Allow static files
+  // Allow static files and PWA assets
   if (
     pathname.startsWith('/_next') ||
+    pathname.startsWith('/icons') ||
+    pathname.startsWith('/api/pwa-icon') ||
     pathname === '/favicon.ico' ||
-    pathname === '/favicon.svg'
+    pathname === '/favicon.svg' ||
+    pathname === '/manifest.webmanifest' ||
+    pathname === '/kt.html'
   ) {
     return NextResponse.next();
   }

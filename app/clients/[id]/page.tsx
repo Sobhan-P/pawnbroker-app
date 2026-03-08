@@ -5,13 +5,15 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { IClient } from '@/types';
 import { calculateOutstanding, InterestPeriod, OutstandingResult } from '@/lib/interest';
+import { formatDateIST, getTodayIST } from '@/lib/dateUtils';
 import Link from 'next/link';
 import Image from 'next/image';
 import WebcamCapture from '@/components/WebcamCapture';
 import Receipt from '@/components/Receipt';
 import PawnEntryReceipt from '@/components/PawnEntryReceipt';
+import DateInput from '@/components/DateInput';
 
-type PanelMode = null | 'close' | 'partial';
+type PanelMode = null | 'close' | 'partial' | 'editDetails' | 'repledge' | 'topup';
 
 function ClientDetailContent() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +32,8 @@ function ClientDetailContent() {
   const [receiptFaceUrl, setReceiptFaceUrl] = useState<string | null>(null);
   const [receiptJewelleryUrl, setReceiptJewelleryUrl] = useState<string | null>(null);
   const [receiptAmountPaid, setReceiptAmountPaid] = useState(0);
+  const [receiptPrincipalReduced, setReceiptPrincipalReduced] = useState(0); // [FIX] track principal
+  const [receiptInterestPaid, setReceiptInterestPaid] = useState(0);       // [FIX] track interest
   const [receiptDiscount, setReceiptDiscount] = useState(0);
   const [receiptOutstanding, setReceiptOutstanding] = useState<OutstandingResult | null>(null);
 
@@ -47,6 +51,19 @@ function ClientDetailContent() {
   const [partialAmountPaid, setPartialAmountPaid] = useState('');
   const [partialPrincipal, setPartialPrincipal] = useState('');
   const [partialInterest, setPartialInterest] = useState('');
+
+  // Edit pledge details form state
+  const [editBankName, setEditBankName] = useState('');
+  const [editBankDate, setEditBankDate] = useState(getTodayIST());
+  const [editBankAmount, setEditBankAmount] = useState('');
+
+  // Repledge form state
+  const [repledgeAmount, setRepledgeAmount] = useState('');
+  const [repledgeDueDate, setRepledgeDueDate] = useState(getTodayIST());
+
+  // Top Up form state
+  const [topupAmount, setTopupAmount] = useState('');
+  const [topupDueDate, setTopupDueDate] = useState(getTodayIST());
 
   useEffect(() => {
     fetch(`/api/clients/${id}`)
@@ -66,7 +83,7 @@ function ClientDetailContent() {
   const backLabel = client.status === 'closed' ? 'Back to Closed Records' : 'Back to Active Loans';
 
   const outstanding = client.status === 'active'
-    ? calculateOutstanding(client.pawnAmount, client.pawnDate, client.payments || [], new Date())
+    ? calculateOutstanding(client.pawnAmount, client.pawnDate, client.payments || [], new Date(), client.interestRate)
     : null;
 
   function recalcPartialSplit(amountStr: string) {
@@ -109,7 +126,12 @@ function ClientDetailContent() {
     const res = await fetch(`/api/clients/${id}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ totalAmountPaid: savedAmount, discount, closingFacePhoto: savedFace, closingJewelleryPhoto: savedJewellery }),
+      body: JSON.stringify({
+        totalAmountPaid: savedAmount,
+        discount: savedDiscount,
+        closingFacePhoto: savedFace,
+        closingJewelleryPhoto: savedJewellery
+      }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -152,8 +174,11 @@ function ClientDetailContent() {
       setReceiptFaceUrl(savedFace);
       setReceiptJewelleryUrl(null);
       setReceiptAmountPaid(savedAmount);
+      setReceiptPrincipalReduced(parseFloat(partialPrincipal) || 0); // [FIX]
+      setReceiptInterestPaid(parseFloat(partialInterest) || 0);     // [FIX]
       setReceiptOutstanding(savedOutstanding);
       setReceiptType('partial');
+      setShowPawnReceipt(false);
       setShowReceipt(true);
       setMode(null);
       setPartialFace(null);
@@ -178,6 +203,81 @@ function ClientDetailContent() {
     }
   }
 
+  async function handleEditDetails() {
+    setProcessing(true);
+    const res = await fetch(`/api/clients/${id}/edit-details`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bankName: editBankName,
+        bankDate: editBankDate || null,
+        bankAmount: editBankAmount ? parseFloat(editBankAmount) : null,
+      }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setClient(updated);
+      setMode(null);
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to save details');
+    }
+    setProcessing(false);
+  }
+
+  async function handleTopUp() {
+    if (!topupAmount) return alert('Please enter the top-up amount');
+    if (!topupDueDate) return alert('Please enter a new due date');
+    if (!confirm(`This will increase the principal by Rs. ${parseFloat(topupAmount).toLocaleString('en-IN')} and reset the interest clock. Proceed?`)) return;
+    setProcessing(true);
+    const res = await fetch(`/api/clients/${id}/topup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        additionalAmount: parseFloat(topupAmount),
+        newDueDate: topupDueDate,
+      }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setClient(updated);
+      setMode(null);
+      setTopupAmount('');
+      setTopupDueDate('');
+    } else {
+      let errorMsg = 'Failed to process top-up';
+      try {
+        const data = await res.json();
+        errorMsg = data.error || errorMsg;
+      } catch { /* empty body — keep default message */ }
+      alert(errorMsg);
+    }
+    setProcessing(false);
+  }
+
+  async function handleRepledge() {
+    if (!repledgeAmount) return alert('Please enter the new loan amount');
+    if (!repledgeDueDate) return alert('Please enter the new due date');
+    if (!confirm('This will close the current loan and create a new one with the same jewellery. Proceed?')) return;
+    setProcessing(true);
+    const res = await fetch(`/api/clients/${id}/repledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        newPawnAmount: parseFloat(repledgeAmount),
+        newDueDate: repledgeDueDate,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      router.push(`/clients/${data.newClientId}?newEntry=1`);
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to repledge');
+    }
+    setProcessing(false);
+  }
+
   const partialAmountNum = parseFloat(partialAmountPaid) || 0;
 
   return (
@@ -188,7 +288,7 @@ function ClientDetailContent() {
         </Link>
       </div>
 
-      {showPawnReceipt && (
+      {showPawnReceipt && !showReceipt && (
         <PawnEntryReceipt client={client} onClose={() => setShowPawnReceipt(false)} />
       )}
 
@@ -199,6 +299,8 @@ function ClientDetailContent() {
           facePhotoUrl={receiptFaceUrl || undefined}
           jewelleryPhotoUrl={receiptJewelleryUrl || undefined}
           amountPaid={receiptAmountPaid}
+          principalReduced={receiptPrincipalReduced} // [FIX]
+          interestPaid={receiptInterestPaid}         // [FIX]
           discount={receiptDiscount || (client.payments?.find(p => p.type === 'full')?.discount)}
           prePaymentOutstanding={receiptOutstanding || undefined}
           onClose={() => setShowReceipt(false)}
@@ -213,11 +315,10 @@ function ClientDetailContent() {
             <p className="text-xs text-blue-500 font-medium mb-0.5">#{client.serialNumber}</p>
             <h1 className="text-xl font-bold text-gray-800">{client.name}</h1>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${
-            client.status === 'active'
-              ? isOverdue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-              : 'bg-gray-200 text-gray-600'
-          }`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${client.status === 'active'
+            ? isOverdue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+            : 'bg-gray-200 text-gray-600'
+            }`}>
             {client.status}{isOverdue && ' — OVERDUE'}
           </span>
         </div>
@@ -235,16 +336,32 @@ function ClientDetailContent() {
           )}
           <Detail label="Jewellery Details" value={client.jewelleryDetails} />
           <Detail label="Principal Amount" value={`Rs. ${client.pawnAmount.toLocaleString('en-IN')}`} />
-          <Detail label="Pawn Date" value={new Date(client.pawnDate).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} />
-          <Detail label="Due Date" value={new Date(client.expectedReturnDate).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} />
+          <Detail label="Interest Rate" value={client.interestRate ? `${client.interestRate}% Regular` : "Month 1-3: 18% | Month 4+: 24% p.a."} />
+          <Detail label="Pawn Date" value={formatDateIST(client.pawnDate)} />
+          <Detail label="Due Date" value={formatDateIST(client.expectedReturnDate)} />
           {client.status === 'closed' && client.closedDate && (
-            <Detail label="Closed On" value={new Date(client.closedDate).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} />
+            <Detail label="Closed On" value={formatDateIST(client.closedDate)} />
           )}
           {client.status === 'closed' && client.totalAmountPaid && (
             <Detail label="Total Amount Paid" value={`Rs. ${client.totalAmountPaid.toLocaleString('en-IN')}`} />
           )}
           {client.createdByName && <Detail label="Created By" value={client.createdByName} />}
+          {client.status === 'closed' && client.bankName && <Detail label="Bank" value={client.bankName} />}
+          {client.status === 'closed' && client.bankDate && <Detail label="Bank Date" value={formatDateIST(client.bankDate)} />}
+          {client.status === 'closed' && client.bankAmount && <Detail label="Bank Amount" value={`Rs. ${client.bankAmount.toLocaleString('en-IN')}`} />}
         </div>
+
+        {/* Bank details — always visible for active loans */}
+        {client.status === 'active' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5 text-sm">
+            <p className="text-xs font-semibold text-amber-700 uppercase mb-2">Bank Details</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Detail label="Bank Name" value={client.bankName || '—'} />
+              <Detail label="Bank Date" value={formatDateIST(client.bankDate)} />
+              <Detail label="Bank Amount" value={client.bankAmount ? `Rs. ${client.bankAmount.toLocaleString('en-IN')}` : '—'} />
+            </div>
+          </div>
+        )}
 
         {/* Interest calculation box */}
         {client.status === 'active' && outstanding && (
@@ -255,10 +372,12 @@ function ClientDetailContent() {
                 <p className="text-xs text-blue-600 italic">No interest yet — 0 days elapsed since last payment.</p>
               ) : (
                 outstanding.periods.map((p: InterestPeriod) => (
-                  <p key={p.monthNumber} className="text-xs text-blue-700">
-                    {p.monthName} ({p.daysHeld}/{p.daysInCalendarMonth} days @ {p.rate}% p.a.):
-                    <span className="font-semibold ml-1">Rs. {p.interest.toLocaleString('en-IN')}</span>
-                  </p>
+                  <div key={p.monthNumber} className="flex items-start justify-between gap-2 text-xs text-blue-700">
+                    <span className="wrap-break-word min-w-0">
+                      {p.monthName} ({p.daysHeld} days @ {p.rate}% p.a.)
+                    </span>
+                    <span className="font-semibold whitespace-nowrap">Rs. {p.interest.toLocaleString('en-IN')}</span>
+                  </div>
                 ))
               )}
             </div>
@@ -273,7 +392,7 @@ function ClientDetailContent() {
               <p>Total Interest: <strong>Rs. {outstanding.totalInterest.toLocaleString('en-IN')}</strong></p>
               <p className="text-base font-bold text-blue-900 mt-1">Total Due: Rs. {outstanding.totalDue.toLocaleString('en-IN')}</p>
               <p className="text-xs text-blue-500 mt-1">
-                Interest from: {outstanding.lastPaymentDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} @ 12% p.a. first month
+                Interest from: {formatDateIST(outstanding.lastPaymentDate)} @ {client.interestRate || (outstanding.periods[0]?.rate || 18)}% p.a.
               </p>
             </div>
           </div>
@@ -284,33 +403,41 @@ function ClientDetailContent() {
           <div className="mb-5">
             <p className="text-sm font-semibold text-gray-700 mb-2">Payment History</p>
             <div className="space-y-2">
-              {client.payments.map((p) => (
-                <div key={p._id} className="bg-gray-50 rounded-lg px-3 py-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className={`font-semibold capitalize ${
-                      p.type === 'full' ? 'text-green-700' : p.type === 'partial' ? 'text-blue-700' : 'text-amber-700'
-                    }`}>
-                      {p.type === 'full' ? 'Full Closure' : p.type === 'partial' ? 'Partial Payment' : 'Interest Payment'}
-                    </span>
-                    <span className="text-gray-500">{new Date(p.date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</span>
-                  </div>
-                  <p className="text-gray-700 mt-0.5">
-                    Paid: <strong>Rs. {p.amountPaid.toLocaleString('en-IN')}</strong>
-                    {(p.principalReduced > 0 || p.interestPaid > 0) && (
-                      <span className="text-gray-500 text-xs ml-1">
-                        ({[
-                          p.principalReduced > 0 && `Principal: Rs. ${p.principalReduced.toLocaleString('en-IN')}`,
-                          p.interestPaid > 0 && `Interest: Rs. ${p.interestPaid.toLocaleString('en-IN')}`,
-                        ].filter(Boolean).join(' + ')})
-                      </span>
+              {client.payments.map((p) => {
+                const isTopUp = p.type === 'partial' && p.resetsInterestClock === true && p.principalReduced === 0 && (p.interestPaid === 0 || !p.interestPaid);
+                const label = isTopUp ? 'Top Up' : p.type === 'full' ? 'Full Closure' : p.type === 'partial' ? 'Partial Payment' : 'Interest Payment';
+                const labelColor = isTopUp ? 'text-green-700' : p.type === 'full' ? 'text-green-700' : p.type === 'partial' ? 'text-blue-700' : 'text-amber-700';
+                return (
+                  <div key={p._id} className="bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-semibold ${labelColor}`}>{label}</span>
+                      <span className="text-gray-500">{formatDateIST(p.date)}</span>
+                    </div>
+                    {isTopUp ? (
+                      <div className="mt-0.5">
+                        <p className="text-gray-700">Amount Topped Up: <strong>Rs. {p.amountPaid.toLocaleString('en-IN')}</strong></p>
+                        <p className="text-gray-600">Interest clock reset to {client.interestRate ? `${client.interestRate}%` : 'Month 1 (18%)'}</p>
+                      </div>
+                    ) : (
+                      <p className="text-gray-700 mt-0.5">
+                        Paid: <strong>Rs. {p.amountPaid.toLocaleString('en-IN')}</strong>
+                        {(p.principalReduced > 0 || p.interestPaid > 0) && (
+                          <span className="text-gray-500 text-xs ml-1">
+                            ({[
+                              p.principalReduced > 0 && `Principal: Rs. ${p.principalReduced.toLocaleString('en-IN')}`,
+                              p.interestPaid > 0 && `Interest: Rs. ${p.interestPaid.toLocaleString('en-IN')}`,
+                            ].filter(Boolean).join(' + ')})
+                          </span>
+                        )}
+                        {p.discount && p.discount > 0 ? (
+                          <span className="text-emerald-600 text-xs ml-1">(Discount: Rs. {p.discount.toLocaleString('en-IN')})</span>
+                        ) : null}
+                      </p>
                     )}
-                    {p.discount && p.discount > 0 ? (
-                      <span className="text-emerald-600 text-xs ml-1">(Discount: Rs. {p.discount.toLocaleString('en-IN')})</span>
-                    ) : null}
-                  </p>
-                  {p.processedByName && <p className="text-gray-400">By: {p.processedByName}</p>}
-                </div>
-              ))}
+                    {p.processedByName && <p className="text-gray-400">By: {p.processedByName}</p>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -338,9 +465,30 @@ function ClientDetailContent() {
                 <button onClick={() => setMode('partial')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700">
                   Partial Payment
                 </button>
+                <button onClick={() => setMode('topup')} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700">
+                  Top Up Loan
+                </button>
+                {isAdmin && (
+                  <>
+                    <button onClick={() => setMode('repledge')} className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700">
+                      Repledge
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditBankName(client.bankName || '');
+                        setEditBankDate(client.bankDate ? new Date(client.bankDate).toISOString().split('T')[0] : getTodayIST());
+                        setEditBankAmount(client.bankAmount ? String(client.bankAmount) : '');
+                        setMode('editDetails');
+                      }}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-700"
+                    >
+                      Edit Details
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setShowPawnReceipt(true)}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-700"
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-600"
                 >
                   Print Entry Slip
                 </button>
@@ -436,23 +584,135 @@ function ClientDetailContent() {
               </div>
             )}
 
+            {/* Edit Pledge Details Panel */}
+            {mode === 'editDetails' && (
+              <div className="space-y-4">
+                <p className="font-semibold text-gray-800">Edit Pledge Details</p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SBI, HDFC..."
+                    value={editBankName}
+                    onChange={(e) => setEditBankName(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bank Disbursement Date</label>
+                  <DateInput
+                    value={editBankDate}
+                    onChange={(e) => setEditBankDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bank Disbursement Amount (Rs.)</label>
+                  <input
+                    type="number"
+                    placeholder="AMOUNT"
+                    value={editBankAmount}
+                    onChange={(e) => setEditBankAmount(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleEditDetails} disabled={processing} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                    {processing ? 'Saving...' : 'Save Details'}
+                  </button>
+                  <button onClick={() => setMode(null)} className="bg-gray-200 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-300">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* Top Up Loan Panel */}
+            {mode === 'topup' && (
+              <div className="space-y-4">
+                <p className="font-semibold text-gray-800">Top Up Loan — Add to Principal</p>
+                <p className="text-xs text-gray-500">
+                  Current principal: <strong>Rs. {client.pawnAmount.toLocaleString('en-IN')}</strong>. The additional amount will be added and the interest clock will reset from today.
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Additional Amount (Rs.) *</label>
+                  <input
+                    type="number"
+                    placeholder="TOP-UP AMOUNT"
+                    value={topupAmount}
+                    onChange={(e) => setTopupAmount(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 placeholder:text-gray-400"
+                  />
+                  {topupAmount && !isNaN(parseFloat(topupAmount)) && (
+                    <p className="text-xs text-green-700 mt-1">
+                      New principal will be: Rs. {(client.pawnAmount + parseFloat(topupAmount)).toLocaleString('en-IN')}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Due Date *</label>
+                  <DateInput
+                    value={topupDueDate}
+                    onChange={(e) => setTopupDueDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleTopUp} disabled={processing} className="bg-green-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50">
+                    {processing ? 'Processing...' : 'Confirm Top Up'}
+                  </button>
+                  <button onClick={() => setMode(null)} className="bg-gray-200 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-300">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* Repledge Panel */}
+            {mode === 'repledge' && (
+              <div className="space-y-4">
+                <p className="font-semibold text-gray-800">Repledge — Same Jewellery, New Loan</p>
+                <p className="text-xs text-gray-500">This will close the current loan and create a new active loan for the same customer and jewellery.</p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Loan Amount (Rs.) *</label>
+                  <input
+                    type="number"
+                    placeholder="NEW PRINCIPAL"
+                    value={repledgeAmount}
+                    onChange={(e) => setRepledgeAmount(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Due Date *</label>
+                  <DateInput
+                    value={repledgeDueDate}
+                    onChange={(e) => setRepledgeDueDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleRepledge} disabled={processing} className="bg-amber-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-amber-700 disabled:opacity-50">
+                    {processing ? 'Processing...' : 'Confirm Repledge'}
+                  </button>
+                  <button onClick={() => setMode(null)} className="bg-gray-200 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-300">Cancel</button>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
-        {/* Print receipt + delete for closed loans */}
-        {client.status === 'closed' && (
+        {/* Delete for closed loans (admin only) */}
+        {client.status === 'closed' && isAdmin && (
           <div className="border-t pt-4 flex flex-wrap gap-3">
-            <button
-              onClick={() => { setReceiptType('close'); setShowReceipt(true); }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
-            >
-              Print Receipt
+            <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700">
+              Delete Record
             </button>
-            {isAdmin && (
-              <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700">
-                Delete Record
-              </button>
-            )}
           </div>
         )}
       </div>

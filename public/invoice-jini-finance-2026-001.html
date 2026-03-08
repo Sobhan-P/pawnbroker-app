@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tax Invoice — INV-2026-001 | Rise Again Web Technologies</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f0f4f8;
+    color: #1a1a2e;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    background: #fff;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.12);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Top accent bar ── */
+  .accent-bar {
+    height: 6px;
+    background: linear-gradient(90deg, #1d4ed8 0%, #7c3aed 50%, #f59e0b 100%);
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 28px 36px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .brand-block .brand-name {
+    font-size: 22px;
+    font-weight: 900;
+    color: #1d4ed8;
+    letter-spacing: -0.5px;
+  }
+  .brand-block .brand-tagline {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .brand-block .brand-contact {
+    font-size: 11px;
+    color: #374151;
+    margin-top: 8px;
+    line-height: 1.8;
+  }
+  .brand-block .gstin {
+    display: inline-block;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1d4ed8;
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .invoice-meta {
+    text-align: right;
+  }
+  .invoice-meta .inv-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 14px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .invoice-meta .inv-number {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1a1a2e;
+    letter-spacing: -0.5px;
+  }
+  .invoice-meta .inv-date {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  .invoice-meta .inv-date strong {
+    color: #374151;
+  }
+
+  /* ── Bill To / From cards ── */
+  .parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin: 0 36px 24px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 24px;
+  }
+  .party {
+    padding: 16px 20px;
+  }
+  .party:first-child {
+    border-right: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .party-label {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  .party-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+  }
+  .party-detail {
+    font-size: 11px;
+    color: #4b5563;
+    line-height: 1.8;
+  }
+  .party-gstin {
+    display: inline-block;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #065f46;
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+  .unregistered {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+  }
+
+  /* ── Items table ── */
+  .items-wrap {
+    margin: 0 36px 20px;
+  }
+  .items-title {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .items-table th {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .items-table th:last-child { text-align: right; }
+  .items-table td {
+    padding: 14px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+    font-size: 12px;
+  }
+  .items-table tr:last-child td { border-bottom: none; }
+  .items-table td:last-child { text-align: right; font-weight: 600; }
+  .item-desc { font-weight: 600; color: #1a1a2e; margin-bottom: 3px; }
+  .item-sub { font-size: 11px; color: #6b7280; }
+  .sac-badge {
+    display: inline-block;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #1d4ed8;
+    margin-top: 4px;
+  }
+
+  /* ── Tax summary ── */
+  .summary-wrap {
+    margin: 0 36px 20px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .summary-box {
+    width: 280px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 16px;
+    font-size: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .label { color: #6b7280; }
+  .summary-row .value { font-weight: 600; color: #1a1a2e; }
+  .summary-row.divider { border-top: 2px solid #e2e8f0; border-bottom: none; }
+  .summary-row.total-row {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    padding: 12px 16px;
+  }
+  .summary-row.total-row .label { color: #bfdbfe; font-weight: 700; font-size: 13px; }
+  .summary-row.total-row .value { color: #fff; font-weight: 900; font-size: 16px; }
+  .summary-row.balance-row {
+    background: #fef3c7;
+  }
+  .summary-row.balance-row .label { color: #92400e; font-weight: 700; }
+  .summary-row.balance-row .value { color: #92400e; font-weight: 900; font-size: 14px; }
+  .summary-row.paid-row {
+    background: #f0fdf4;
+  }
+  .summary-row.paid-row .label { color: #065f46; font-weight: 600; }
+  .summary-row.paid-row .value { color: #065f46; font-weight: 700; }
+
+  /* ── Amount in words ── */
+  .words-wrap {
+    margin: 0 36px 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+  .words-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #9ca3af; margin-bottom: 4px; }
+  .words-text { font-size: 12px; font-weight: 600; color: #374151; font-style: italic; }
+
+  /* ── Payment info ── */
+  .payment-wrap {
+    margin: 0 36px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .payment-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .payment-card-title {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  .payment-method {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .pay-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .pay-detail { font-size: 12px; color: #374151; }
+  .pay-detail strong { display: block; font-size: 13px; color: #1a1a2e; }
+
+  /* ── Terms ── */
+  .terms-wrap {
+    margin: 0 36px 20px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+  .terms-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 6px;
+  }
+  .terms-list {
+    list-style: none;
+    padding: 0;
+  }
+  .terms-list li {
+    font-size: 11px;
+    color: #78350f;
+    padding: 2px 0;
+    padding-left: 14px;
+    position: relative;
+  }
+  .terms-list li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: #f59e0b;
+    font-weight: 900;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin: 0 36px;
+    padding: 16px 0 28px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .footer-left {
+    font-size: 11px;
+    color: #9ca3af;
+    line-height: 1.8;
+  }
+  .footer-left strong { color: #6b7280; }
+  .sig-block {
+    text-align: center;
+  }
+  .sig-line {
+    width: 140px;
+    border-bottom: 1.5px solid #374151;
+    margin: 0 auto 6px;
+    height: 36px;
+  }
+  .sig-label {
+    font-size: 10px;
+    color: #6b7280;
+  }
+  .sig-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #374151;
+    margin-top: 2px;
+  }
+
+  /* ── Bottom bar ── */
+  .bottom-bar {
+    background: #1e1b4b;
+    color: #a5b4fc;
+    text-align: center;
+    font-size: 11px;
+    padding: 10px 36px;
+    line-height: 1.8;
+  }
+  .bottom-bar strong { color: #e0e7ff; }
+
+  /* ── Print ── */
+  @media print {
+    body { background: white; }
+    .page {
+      width: 100%;
+      margin: 0;
+      box-shadow: none;
+      min-height: unset;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+  }
+
+  /* ── Status stamp ── */
+  .stamp {
+    position: absolute;
+    top: 120px;
+    right: 40px;
+    border: 3px solid #10b981;
+    color: #10b981;
+    font-size: 18px;
+    font-weight: 900;
+    padding: 6px 18px;
+    border-radius: 6px;
+    letter-spacing: 3px;
+    transform: rotate(-12deg);
+    opacity: 0.18;
+    pointer-events: none;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="accent-bar"></div>
+  <div class="stamp">TAX INVOICE</div>
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div class="brand-block">
+      <div class="brand-name">Rise Again Web Technologies</div>
+      <div class="brand-tagline">Web &amp; Mobile Software Development</div>
+      <div class="brand-contact">
+        Kuzhivilai, Kanyakumari, Tamil Nadu — 629 xxx<br/>
+        Ph: +91 75300 58236 &nbsp;|&nbsp; WhatsApp: +91 88837 11762
+      </div>
+      <div class="gstin">GSTIN: 33DAVPS2818J2Z2</div>
+    </div>
+    <div class="invoice-meta">
+      <div class="inv-badge">Tax Invoice</div>
+      <div class="inv-number">INV-2026-001</div>
+      <div class="inv-date">Date: <strong>05 March 2026</strong></div>
+      <div class="inv-date" style="margin-top:4px;">Due: <strong>Immediate</strong></div>
+    </div>
+  </div>
+
+  <!-- ── PARTIES ── -->
+  <div class="parties">
+    <div class="party">
+      <div class="party-label">Billed To</div>
+      <div class="party-name">Jini Finance</div>
+      <div class="party-detail">
+        Jeba Jini (Proprietor)<br/>
+        Kuzhivilai, Kanyakumari<br/>
+        Tamil Nadu, India<br/>
+        Ph: +91 75300 58236
+      </div>
+      <div class="party-gstin unregistered">GST: Unregistered</div>
+    </div>
+    <div class="party">
+      <div class="party-label">Place of Supply</div>
+      <div class="party-name">Tamil Nadu</div>
+      <div class="party-detail">
+        State Code: <strong>33</strong><br/>
+        Currency: <strong>INR (Indian Rupees)</strong><br/>
+        Tax Type: <strong>CGST + SGST</strong><br/>
+        SAC Code: <strong>998313</strong>
+      </div>
+      <div class="party-gstin" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">Intra-State Supply</div>
+    </div>
+  </div>
+
+  <!-- ── ITEMS ── -->
+  <div class="items-wrap">
+    <div class="items-title">Services Rendered</div>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th>Description of Service</th>
+          <th style="width:80px;text-align:center;">SAC</th>
+          <th style="width:80px;text-align:right;">Qty</th>
+          <th style="width:110px;text-align:right;">Amount (Rs.)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:#9ca3af;font-weight:600;">01</td>
+          <td>
+            <div class="item-desc">Jini Finance — Gold Pawn Finance Management System</div>
+            <div class="item-sub">Full-stack web application development, cloud deployment,<br/>
+            PWA setup, MongoDB Atlas integration, Cloudinary photo storage,<br/>
+            WhatsApp notifications, admin &amp; employee roles, PDF reports.</div>
+            <div><span class="sac-badge">SAC: 998313</span></div>
+          </td>
+          <td style="text-align:center;color:#6b7280;">998313</td>
+          <td style="text-align:right;color:#6b7280;">1</td>
+          <td>4,000.00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── SUMMARY ── -->
+  <div class="summary-wrap">
+    <div class="summary-box">
+      <div class="summary-row">
+        <span class="label">Taxable Amount</span>
+        <span class="value">Rs. 4,000.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="label">CGST @ 9%</span>
+        <span class="value">Rs. 360.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="label">SGST @ 9%</span>
+        <span class="value">Rs. 360.00</span>
+      </div>
+      <div class="summary-row total-row">
+        <span class="label">Invoice Total</span>
+        <span class="value">Rs. 4,720.00</span>
+      </div>
+      <div class="summary-row paid-row">
+        <span class="label">Advance Received</span>
+        <span class="value">− Rs. 1,000.00</span>
+      </div>
+      <div class="summary-row balance-row">
+        <span class="label">Balance Due</span>
+        <span class="value">Rs. 3,720.00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AMOUNT IN WORDS ── -->
+  <div class="words-wrap">
+    <div class="words-label">Invoice Total in Words</div>
+    <div class="words-text">Four Thousand Seven Hundred and Twenty Rupees Only (Rs. 4,720.00)</div>
+  </div>
+
+  <!-- ── PAYMENT INFO ── -->
+  <div class="payment-wrap">
+    <div class="payment-card">
+      <div class="payment-card-title">Payment Method</div>
+      <div class="payment-method">
+        <div class="pay-icon">&#9654;</div>
+        <div class="pay-detail">
+          <strong>Google Pay (GPay)</strong>
+          +91 75300 58236
+        </div>
+      </div>
+      <div class="payment-method" style="margin-top:6px;">
+        <div class="pay-icon" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">&#9654;</div>
+        <div class="pay-detail">
+          <strong>PhonePe / UPI</strong>
+          +91 75300 58236
+        </div>
+      </div>
+    </div>
+    <div class="payment-card">
+      <div class="payment-card-title">Payment Summary</div>
+      <div style="font-size:12px;line-height:2;color:#374151;">
+        <div style="display:flex;justify-content:space-between;">
+          <span>Invoice Total</span><span style="font-weight:700;">Rs. 4,720</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#065f46;">
+          <span>Advance Paid</span><span style="font-weight:700;">Rs. 1,000</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:4px;">
+          <span style="font-weight:700;color:#92400e;">Balance Due</span>
+          <span style="font-weight:900;color:#92400e;font-size:15px;">Rs. 3,720</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TERMS ── -->
+  <div class="terms-wrap">
+    <div class="terms-title">Terms &amp; Conditions</div>
+    <ul class="terms-list">
+      <li>Payment is due immediately upon receipt of this invoice.</li>
+      <li>This is a computer-generated tax invoice under GST Act, 2017.</li>
+      <li>Subject to Kanyakumari jurisdiction only.</li>
+      <li>For support &amp; queries: +91 75300 58236 | WhatsApp: +91 88837 11762</li>
+    </ul>
+  </div>
+
+  <!-- ── FOOTER / SIGNATURE ── -->
+  <div class="footer">
+    <div class="footer-left">
+      <strong>Rise Again Web Technologies</strong><br/>
+      GSTIN: 33DAVPS2818J2Z2<br/>
+      Kuzhivilai, Kanyakumari, Tamil Nadu<br/>
+      Generated on: 05 March 2026
+    </div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorised Signatory</div>
+      <div class="sig-name">Rise Again Web Technologies</div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM BAR ── -->
+  <div class="bottom-bar">
+    <strong>Rise Again Web Technologies</strong> &nbsp;|&nbsp; GSTIN: 33DAVPS2818J2Z2 &nbsp;|&nbsp;
+    +91 75300 58236 &nbsp;|&nbsp; Kuzhivilai, Kanyakumari, Tamil Nadu
+  </div>
+
+</div>
+</body>
+</html>

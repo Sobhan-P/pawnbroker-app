@@ -12,18 +12,32 @@ function ActiveClientsContent() {
 
   const [clients, setClients] = useState<IClient[]>([]);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'overdue'>(initialFilter);
+  const [filter, setFilter] = useState<'all' | 'overdue'>(initialFilter as 'all' | 'overdue');
+  const [selectedBank, setSelectedBank] = useState('');
+  const [banks, setBanks] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Load distinct bank names on mount
+  useEffect(() => {
+    fetch('/api/clients/banks')
+      .then((r) => r.json())
+      .then((data) => setBanks(data.banks || []));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
-    if (filter !== 'all') params.set('filter', filter);
+    if (selectedBank) {
+      params.set('filter', 'bank');
+      params.set('bankName', selectedBank);
+    } else if (filter !== 'all') {
+      params.set('filter', filter);
+    }
     fetch(`/api/clients?${params}`)
       .then((r) => r.json())
       .then((data) => { setClients(Array.isArray(data) ? data : []); setLoading(false); });
-  }, [search, filter]);
+  }, [search, filter, selectedBank]);
 
   return (
     <div>
@@ -45,22 +59,36 @@ function ActiveClientsContent() {
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
         />
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {(['all', 'overdue'] as const).map((f) => (
             <button
               key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                filter === f
-                  ? f === 'overdue'
-                    ? 'bg-red-600 text-white border-red-600'
-                    : 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-              }`}
+              onClick={() => { setFilter(f); setSelectedBank(''); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${filter === f && !selectedBank
+                ? f === 'overdue'
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                }`}
             >
               {f === 'all' ? 'ALL ACTIVE' : 'OVERDUE'}
             </button>
           ))}
+          {banks.length > 0 && (
+            <select
+              value={selectedBank}
+              onChange={(e) => { setSelectedBank(e.target.value); setFilter('all'); }}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 ${selectedBank
+                ? 'bg-amber-500 text-white border-amber-500'
+                : 'bg-white text-gray-600 border-gray-300'
+                }`}
+            >
+              <option value="">ALL BANKS</option>
+              {banks.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

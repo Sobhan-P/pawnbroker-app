@@ -5,9 +5,17 @@ import User from '@/models/User';
 
 // GET: check if setup is required
 export async function GET() {
-  await connectDB();
-  const adminCount = await User.countDocuments({ role: 'admin' });
-  return NextResponse.json({ setupRequired: adminCount === 0 });
+  try {
+    await connectDB();
+    const adminCount = await User.countDocuments({ role: 'admin' });
+    return NextResponse.json({ setupRequired: adminCount === 0 });
+  } catch (err) {
+    console.error('Setup GET Error:', err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Database connection failed' },
+      { status: 500 }
+    );
+  }
 }
 
 // POST: create initial admin (only works if no admin exists)
